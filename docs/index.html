@@ -37,7 +37,7 @@
       background-image: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #090d16 75%);
       color: var(--text-main);
       min-height: 100vh;
-      padding: 16px 14px 40px;
+      padding: calc(env(safe-area-inset-top, 0px) + 36px) 14px calc(env(safe-area-inset-bottom, 0px) + 40px);
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -49,6 +49,7 @@
       display: flex;
       flex-direction: column;
       gap: 14px;
+      margin-top: 8px;
     }
 
     /* Header Bar */
