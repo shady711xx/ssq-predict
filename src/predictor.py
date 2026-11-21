@@ -1,0 +1,449 @@
+"""Prediction generation, pool export, and automated verification pipeline for SSQ lottery."""
+import json
+import logging
+import os
+import sys
+from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional, Tuple
+
+import numpy as np
+import pandas as pd
+from tabulate import tabulate
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import config
+from src import features as feat_module
+from src import game_theory, model, storage
+
+logger = logging.getLogger('ssq.predictor')
+
+
+def get_next_draw_dates(n: int = 1, from_date: Optional[datetime] = None) -> List[datetime]:
+    """Calculate the next n official SSQ draw dates (Tuesdays, Thursdays, Sundays)."""
+    if from_date is None:
+        from_date = datetime.now()
+    dates: List[datetime] = []
+    current = from_date
+    while len(dates) < n:
+        if current.date() > from_date.date() and current.weekday() in (1, 3, 6):
+            dates.append(current)
+        current += timedelta(days=1)
+    return dates
+
+
+def estimate_issue_number(
+    draw_date: datetime,
+    latest_issue: Optional[str] = None,
+    latest_date: Optional[str] = None,
+) -> str:
+    """Estimate upcoming 5-digit SSQ issue number."""
+    year_code = draw_date.year % 100
+    if not latest_issue or not latest_date:
+        return f"{year_code:02d}001"
+    
+    try:
+        latest_year = int(str(latest_issue)[:2])
+        latest_num = int(str(latest_issue)[2:])
+        if year_code != latest_year:
+            return f"{year_code:02d}001"
+        else:
+            return f"{year_code:02d}{latest_num + 1:03d}"
+    except (ValueError, IndexError):
+        return f"{year_code:02d}001"
+
+
+def generate_predictions(
+    n_combinations: int = 5,
+    n_draws: int = 1,
+    from_date: Optional[datetime] = None,
+    mode: str = 'balanced',
+    beta: float = config.GAME_THEORY_BETA,
+    max_ball_freq: int = config.MAX_BALL_FREQ,
+) -> List[Dict[str, Any]]:
+    """Train ensemble model on latest historical data and generate game-theoretic predictions."""
+    storage.init_db()
+    df = storage.get_all_draws()
+    if df.empty or len(df) < 50:
+        logger.error('Insufficient draw data for predictions')
+        return []
+
+    latest_issue = storage.get_latest_issue()
+    latest_row = df[df['issue'] == latest_issue].iloc[0] if latest_issue else df.iloc[-1]
+    latest_date_str = latest_row['draw_date']
+
+    target_dates = get_next_draw_dates(n_draws, from_date)
+    ensemble = model.EnsembleModel()
+    ensemble.fit(df)
+
+    filter_obj = game_theory.AntiPopularityFilter(history_df=df)
+    scorer_obj = game_theory.UniquenessScorer(history_df=df)
+
+    all_predictions = []
+    current_issue = latest_issue
+    current_date_str = latest_date_str
+
+    for d in target_dates:
+        t_issue = estimate_issue_number(d, current_issue, current_date_str)
+        combos, stats = game_theory.select_game_theory_combinations(
+            ensemble,
+            n_combinations=n_combinations,
+            mode=mode,
+            beta=beta,
+            max_ball_freq=max_ball_freq,
+            pool_size=300,
+            df=df,
+            filter_obj=filter_obj,
+            scorer_obj=scorer_obj,
+        )
+
+        db_records = []
+        for c in combos:
+            reds = c['reds']
+            odd, even = feat_module.compute_odd_even_ratio(reds)
+            db_records.append({
+                'predict_date': datetime.now().strftime('%Y-%m-%d'),
+                'target_issue': t_issue,
+                'target_date': d.strftime('%Y-%m-%d'),
+                'red_1': reds[0], 'red_2': reds[1], 'red_3': reds[2],
+                'red_4': reds[3], 'red_5': reds[4], 'red_6': reds[5],
+                'blue': c['blue'],
+                'score': c.get('final_score', c.get('model_score', 0.5)),
+                'strategy': f"ensemble_gt_{mode}",
+                'sum_value': int(sum(reds)),
+                'odd_even_ratio': f"{odd}:{even}",
+            })
+
+        storage.save_predictions(db_records)
+        sync_predictions_csv()
+
+        all_predictions.append({
+            'target_issue': t_issue,
+            'target_date': d.strftime('%Y-%m-%d'),
+            'combinations': combos,
+            'stats': stats,
+        })
+        current_issue = t_issue
+        current_date_str = d.strftime('%Y-%m-%d')
+
+    return all_predictions
+
+
+def sync_predictions_csv(output_path: Optional[str] = None):
+    """Sync full predictions table to reports/predictions.csv with UTF-8-SIG."""
+    if output_path is None:
+        output_path = os.path.join(config.REPORTS_DIR, 'predictions.csv')
+    df = storage.get_all_predictions()
+    if not df.empty:
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        df.to_csv(output_path, index=False, encoding='utf-8-sig')
+
+
+def save_predictions_csv(predictions: List[Dict[str, Any]], output_path: Optional[str] = None):
+    """Save formatted predictions to CSV."""
+    sync_predictions_csv(output_path)
+
+
+def print_predictions(predictions_by_draw: List[Dict[str, Any]]):
+    """Print formatted prediction tables."""
+    for p in predictions_by_draw:
+        print(f"\n🔮 双色球预测目标期号: {p['target_issue']} (预计开奖: {p['target_date']})")
+        table_data = []
+        for i, c in enumerate(p['combinations']):
+            reds_str = ' '.join(f"{r:02d}" for r in c['reds'])
+            tags_str = ' / '.join(c.get('tags', []))
+            table_data.append([
+                f"第 {i+1} 注",
+                reds_str,
+                f"{c['blue']:02d}",
+                f"{c.get('model_score', 0.0):.4f}",
+                f"{c.get('uniqueness_score', 0.0):.4f}",
+                f"{c.get('final_score', 0.0):.4f}",
+                tags_str
+            ])
+        print(tabulate(
+            table_data,
+            headers=['序号', '红球推荐 (6码)', '蓝球', '模型分', '独享分', '综合分', '反大众标签'],
+            tablefmt='grid'
+        ))
+
+
+def run_check_and_report() -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Check unverified predictions against latest draws and return results and summary."""
+    storage.init_db()
+    newly_checked = storage.check_and_update_predictions()
+    summary = storage.get_checked_predictions_summary()
+    sync_predictions_csv()
+
+    if newly_checked:
+        print(f"\n🎯 自动核对完成！新核对 {len(newly_checked)} 注预测：")
+        check_table = []
+        for c in newly_checked:
+            check_table.append([
+                c['target_issue'],
+                f"红{c['red_hit']}+蓝{c['blue_hit']}",
+                c['prize_level'],
+                f"¥{c['prize_amount']}"
+            ])
+        print(tabulate(check_table, headers=['期号', '命中情况', '中奖等级', '中奖金额'], tablefmt='grid'))
+
+    print(f"\n📊 实盘累计总投入: ¥{summary['total_investment']} | 累计总中奖: ¥{summary['total_winnings']} | 净收益: ¥{summary['net_return']} (ROI: {summary['roi_pct']}%)")
+    return newly_checked, summary
+
+
+def check_past_predictions() -> List[Dict[str, Any]]:
+    """Alias for automated scheduler backward compatibility."""
+    newly_checked, _ = run_check_and_report()
+    return newly_checked
+
+
+def export_frozen_candidate_pool(
+    output_path: Optional[str] = None,
+    backup_path: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Export top-20 candidate pools for balanced and jackpot modes to JSON for mobile web app.
+    
+    Generates docs/data/pool.json and reports/latest_pool.json.
+    """
+    config.ensure_dirs()
+    if output_path is None:
+        output_path = os.path.join(config.DOCS_DATA_DIR, 'pool.json')
+    if backup_path is None:
+        backup_path = os.path.join(config.REPORTS_DIR, 'latest_pool.json')
+
+    storage.init_db()
+    df = storage.get_all_draws()
+    if df.empty or len(df) < 50:
+        raise RuntimeError('数据库历史开奖记录不足，无法导出候选池')
+
+    latest_issue = storage.get_latest_issue()
+    latest_row = df[df['issue'] == latest_issue].iloc[0]
+    target_dates = get_next_draw_dates(1)
+    target_date = target_dates[0]
+    target_issue = estimate_issue_number(target_date, latest_issue, latest_row['draw_date'])
+    weekday_cn = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][target_date.weekday()]
+
+    # Train model
+    ensemble = model.EnsembleModel()
+    ensemble.fit(df)
+
+    filter_obj = game_theory.AntiPopularityFilter(history_df=df)
+    scorer_obj = game_theory.UniquenessScorer(history_df=df)
+
+    # 1. Balanced Pool (20 tickets)
+    # Generate high quality 20 tickets from 300+ candidates:
+    # - Cover at least 8-12 distinct blues (max 2 per blue)
+    # - Red ball max frequency <= 4 across 20 tickets (avg 3.6)
+    # - Red ball pairwise overlap <= 3 (relaxed to 4)
+    # First, sample 400 candidate combinations through game theory filter & scoring
+    raw_candidates: List[Dict[str, Any]] = []
+    attempts = 1500
+    sorted_blues = sorted(ensemble.get_probabilities()['blue'].keys(),
+                          key=lambda b: ensemble.get_probabilities()['blue'][b], reverse=True)
+    red_nums = list(range(config.RED_BALL_MIN, config.RED_BALL_MAX + 1))
+    red_probs = ensemble.get_probabilities()['red']
+    red_weights = np.array([red_probs.get(n, 1.0 / 33.0) for n in red_nums], dtype=float)
+    red_weights = np.maximum(red_weights, 1e-6)
+    red_weights /= red_weights.sum()
+
+    for _ in range(attempts):
+        if len(raw_candidates) >= 400:
+            break
+        b_idx = len(raw_candidates) % min(10, len(sorted_blues))
+        b = sorted_blues[b_idx]
+        
+        avail_nums = red_nums.copy()
+        avail_w = red_weights.copy()
+        reds = []
+        for _ in range(6):
+            w = avail_w / avail_w.sum()
+            idx = int(np.random.choice(len(avail_nums), p=w))
+            reds.append(avail_nums[idx])
+            avail_nums.pop(idx)
+            avail_w = np.delete(avail_w, idx)
+        reds.sort()
+
+        is_pass, _ = filter_obj.is_valid(reds, b)
+        if not is_pass:
+            continue
+
+        uniq_res = scorer_obj.score(reds, b)
+        model_s = ensemble.score_combination(reds, b)
+        u_s = uniq_res['uniqueness_score']
+        odd, even = feat_module.compute_odd_even_ratio(reds)
+
+        raw_candidates.append({
+            'reds': reds,
+            'blue': b,
+            'model_score': round(model_s, 4),
+            'uniqueness_score': round(u_s, 4),
+            'tags': uniq_res['tags'],
+            'features': {
+                'sum_value': int(sum(reds)),
+                'odd_even_ratio': f'{odd}:{even}',
+                'ac_value': int(feat_module.compute_ac_value(reds)),
+                'consecutive': int(feat_module.compute_consecutive_count(reds)),
+            }
+        })
+
+    # Normalize scores across candidates
+    m_scores = [c['model_score'] for c in raw_candidates]
+    u_scores = [c['uniqueness_score'] for c in raw_candidates]
+    min_m, max_m = min(m_scores), max(m_scores)
+    min_u, max_u = min(u_scores), max(u_scores)
+    denom_m = (max_m - min_m) + 1e-9
+    denom_u = (max_u - min_u) + 1e-9
+
+    for c in raw_candidates:
+        norm_m = (c['model_score'] - min_m) / denom_m
+        norm_u = (c['uniqueness_score'] - min_u) / denom_u
+        c['final_score'] = round(float((1.0 - config.GAME_THEORY_BETA) * norm_m + config.GAME_THEORY_BETA * norm_u), 4)
+
+    raw_candidates.sort(key=lambda x: x['final_score'], reverse=True)
+
+    # 1. Balanced 20-ticket selection:
+    # max 2 per blue, max 4 per red ball, max overlap <= 3 (relaxed to 4)
+    balanced_selected: List[Dict[str, Any]] = []
+    for max_ov in [3, 4, 6]:
+        for max_red_f in [4, 5, 8]:
+            for max_blue_f in [2, 3, 5]:
+                balanced_selected = []
+                blue_counts: Dict[int, int] = {}
+                red_counts: Dict[int, int] = {}
+                for c in raw_candidates:
+                    if blue_counts.get(c['blue'], 0) >= max_blue_f:
+                        continue
+                    if any(red_counts.get(r, 0) >= max_red_f for r in c['reds']):
+                        continue
+                    if any(len(set(c['reds']) & set(prev['reds'])) > max_ov for prev in balanced_selected):
+                        continue
+
+                    balanced_selected.append(c)
+                    blue_counts[c['blue']] = blue_counts.get(c['blue'], 0) + 1
+                    for r in c['reds']:
+                        red_counts[r] = red_counts.get(r, 0) + 1
+
+                    if len(balanced_selected) == 20:
+                        break
+                if len(balanced_selected) == 20:
+                    break
+            if len(balanced_selected) == 20:
+                break
+        if len(balanced_selected) == 20:
+            break
+
+    # 2. Jackpot 20-ticket selection:
+    # Lock top composite blue, max 4 per red ball, max overlap <= 3 (relaxed to 4)
+    # Find locked blue
+    blue_model_probs = [ensemble.get_probabilities()['blue'].get(b, 1.0 / 16.0) for b in range(1, 17)]
+    blue_uniqueness = []
+    for b in range(1, 17):
+        if b in game_theory.POPULAR_BLUES:
+            bu = 0.20
+        elif b in game_theory.AVOIDED_BLUES:
+            bu = 0.85
+        else:
+            bu = 0.50
+        blue_uniqueness.append(bu)
+    min_bm, max_bm = min(blue_model_probs), max(blue_model_probs)
+    min_bu, max_bu = min(blue_uniqueness), max(blue_uniqueness)
+    denom_bm = (max_bm - min_bm) + 1e-9
+    denom_bu = (max_bu - min_bu) + 1e-9
+    blue_composite = {
+        b: (1.0 - config.GAME_THEORY_BETA) * ((blue_model_probs[b - 1] - min_bm) / denom_bm) +
+           config.GAME_THEORY_BETA * ((blue_uniqueness[b - 1] - min_bu) / denom_bu)
+        for b in range(1, 17)
+    }
+    locked_blue = max(blue_composite.keys(), key=lambda b: blue_composite[b])
+
+    jackpot_cands = [c for c in raw_candidates if c['blue'] == locked_blue]
+    if len(jackpot_cands) < 20:
+        for c in raw_candidates:
+            if c['blue'] != locked_blue and len(jackpot_cands) < 200:
+                c_copy = dict(c)
+                c_copy['blue'] = locked_blue
+                jackpot_cands.append(c_copy)
+
+    jackpot_selected: List[Dict[str, Any]] = []
+    for max_ov in [2, 3, 4, 6]:
+        for max_red_f in [4, 5, 8]:
+            jackpot_selected = []
+            red_counts: Dict[int, int] = {}
+            for c in jackpot_cands:
+                if any(red_counts.get(r, 0) >= max_red_f for r in c['reds']):
+                    continue
+                if any(len(set(c['reds']) & set(prev['reds'])) > max_ov for prev in jackpot_selected):
+                    continue
+
+                jackpot_selected.append(c)
+                for r in c['reds']:
+                    red_counts[r] = red_counts.get(r, 0) + 1
+
+                if len(jackpot_selected) == 20:
+                    break
+            if len(jackpot_selected) == 20:
+                break
+        if len(jackpot_selected) == 20:
+            break
+
+    # Format pool items
+    def format_pool_ticket(rank: int, item: Dict[str, Any]) -> Dict[str, Any]:
+        reds = sorted(item['reds'])
+        odd, even = feat_module.compute_odd_even_ratio(reds)
+        return {
+            'rank': rank,
+            'reds': reds,
+            'blue': int(item['blue']),
+            'model_score': round(float(item.get('model_score', 0.5)), 4),
+            'uniqueness_score': round(float(item.get('uniqueness_score', 0.5)), 4),
+            'composite_score': round(float(item.get('final_score', item.get('model_score', 0.5))), 4),
+            'sum_val': int(sum(reds)),
+            'odd_even': f"{odd}:{even}",
+            'ac_val': int(feat_module.compute_ac_value(reds)),
+            'consecutive': int(feat_module.compute_consecutive_count(reds)),
+            'tags': item.get('tags', []),
+        }
+
+    balanced_pool = [format_pool_ticket(i + 1, item) for i, item in enumerate(balanced_selected[:20])]
+    jackpot_pool = [format_pool_ticket(i + 1, item) for i, item in enumerate(jackpot_selected[:20])]
+
+    # Extract recent 10 draws for client-side auto-reconciliation
+    recent_df = df.tail(10).iloc[::-1]
+    recent_draws = []
+    for _, r in recent_df.iterrows():
+        recent_draws.append({
+            'issue': str(r['issue']),
+            'draw_date': str(r['draw_date']),
+            'reds': [int(x) for x in feat_module.get_red_balls_from_row(r)],
+            'blue': int(r['blue']),
+        })
+
+    pool_data = {
+        'meta': {
+            'generated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'target_issue': target_issue,
+            'target_draw_date': f"{target_date.strftime('%Y-%m-%d')} ({weekday_cn})",
+            'latest_draw': {
+                'issue': str(latest_issue),
+                'date': latest_row['draw_date'],
+                'reds': feat_module.get_red_balls_from_row(latest_row),
+                'blue': int(latest_row['blue']),
+            },
+            'recent_draws': recent_draws,
+            'ev_timing': None,
+            'consensus': None,
+        },
+        'recent_draws': recent_draws,
+        'pools': {
+            'balanced': balanced_pool,
+            'jackpot': jackpot_pool,
+        }
+    }
+
+    # Save to docs/data/pool.json and reports/latest_pool.json
+    for p in [output_path, backup_path]:
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, 'w', encoding='utf-8') as f:
+            json.dump(pool_data, f, ensure_ascii=False, indent=2)
+        logger.info(f'Exported candidate pool to {p}')
+
+    return pool_data

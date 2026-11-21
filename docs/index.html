@@ -1,0 +1,1568 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>双色球易数终审 · 移动端选号系统</title>
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(30, 41, 59, 0.7);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #6366f1;
+      --primary-hover: #4f46e5;
+      --accent: #f43f5e;
+      --red-ball: #ef4444;
+      --blue-ball: #3b82f6;
+      --gold: #f59e0b;
+      --green: #10b981;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      background-image: radial-gradient(circle at 50% 0%, #1e1b4b 0%, #090d16 75%);
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 16px 14px 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 480px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* Header Bar */
+    .header-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 14px 16px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    }
+
+    .title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(135deg, #a5b4fc, #f472b6);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .tag-live {
+      font-size: 0.72rem;
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--green);
+      padding: 2px 8px;
+      border-radius: 12px;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      font-weight: 600;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .meta-val {
+      color: var(--text-main);
+      font-weight: 600;
+    }
+
+    .latest-draw-row {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed rgba(255, 255, 255, 0.08);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .mini-ball {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #fff;
+      margin-right: 2px;
+    }
+    .mini-red { background: var(--red-ball); }
+    .mini-blue { background: var(--blue-ball); }
+
+    /* Interactive Divination Card */
+    .control-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 16px;
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .section-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: #c7d2fe;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .form-label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    input[type="text"], input[type="datetime-local"] {
+      flex: 1;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 10px;
+      color: var(--text-main);
+      padding: 10px 12px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.08);
+      color: #e2e8f0;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 8px 12px;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .btn-secondary:active {
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    /* Segmented Mode Control */
+    .mode-switch {
+      display: flex;
+      background: rgba(15, 23, 42, 0.8);
+      border-radius: 10px;
+      padding: 3px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .mode-tab {
+      flex: 1;
+      padding: 8px 0;
+      text-align: center;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+
+    .mode-tab.active {
+      background: var(--primary);
+      color: #fff;
+      box-shadow: 0 2px 8px rgba(99, 102, 241, 0.35);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1, #ec4899);
+      color: #fff;
+      border: none;
+      padding: 13px;
+      border-radius: 12px;
+      font-size: 1.05rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 16px rgba(236, 72, 153, 0.35);
+      transition: all 0.2s;
+    }
+
+    .btn-primary:active {
+      transform: scale(0.98);
+      box-shadow: 0 2px 8px rgba(236, 72, 153, 0.2);
+    }
+
+    /* Hexagram Card */
+    .hexagram-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 16px;
+      backdrop-filter: blur(12px);
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .hex-flow {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      align-items: center;
+      text-align: center;
+      padding: 10px 0;
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 12px;
+    }
+
+    .hex-item .symbol {
+      font-size: 1.8rem;
+      line-height: 1.1;
+      color: #f1f5f9;
+    }
+
+    .hex-item .name {
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin-top: 4px;
+    }
+
+    .hex-item .tag {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+    }
+
+    .hex-arrow {
+      color: var(--primary);
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .fortune-box {
+      border-radius: 12px;
+      padding: 12px;
+      background: rgba(15, 23, 42, 0.6);
+      border-left: 4px solid var(--gold);
+    }
+
+    .fortune-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .fortune-rating {
+      font-weight: 800;
+      font-size: 0.95rem;
+    }
+
+    .fortune-desc {
+      font-size: 0.82rem;
+      color: #cbd5e1;
+      line-height: 1.4;
+    }
+
+    .wuxing-tags {
+      display: flex;
+      gap: 6px;
+      margin-top: 6px;
+      font-size: 0.75rem;
+    }
+
+    .tag-fav {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+
+    .tag-avoid {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+
+    /* Result Tickets */
+    .tickets-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .ticket-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      backdrop-filter: blur(8px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .ticket-card::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: linear-gradient(to bottom, #ef4444, #3b82f6);
+    }
+
+    .ticket-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .ticket-idx {
+      font-weight: 700;
+      color: #e2e8f0;
+    }
+
+    .balls-row {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .ball {
+      width: 33px;
+      height: 33px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.95rem;
+      font-weight: 800;
+      color: #ffffff;
+      box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.4), 0 3px 6px rgba(0, 0, 0, 0.35);
+      position: relative;
+    }
+
+    .ball-red {
+      background: radial-gradient(circle at 35% 35%, #f87171, #dc2626);
+    }
+
+    .ball-blue {
+      background: radial-gradient(circle at 35% 35%, #60a5fa, #2563eb);
+    }
+
+    .fav-dot {
+      position: absolute;
+      top: -2px;
+      right: -2px;
+      width: 8px;
+      height: 8px;
+      background: #fbbf24;
+      border-radius: 50%;
+      border: 1px solid #1e293b;
+    }
+
+    .ticket-footer {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding-top: 6px;
+    }
+
+    /* Copy Button & Actions */
+    .actions-bar {
+      display: flex;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .btn-copy {
+      flex: 1;
+      background: rgba(99, 102, 241, 0.2);
+      color: #c7d2fe;
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      padding: 11px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn-copy:active {
+      background: rgba(99, 102, 241, 0.35);
+    }
+
+    /* Dynamic Alert Banners */
+    .banner {
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      line-height: 1.4;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .banner-warning {
+      background: rgba(245, 158, 11, 0.18);
+      border: 1px solid rgba(245, 158, 11, 0.5);
+      color: #fde68a;
+    }
+    .banner-danger {
+      background: rgba(239, 68, 68, 0.18);
+      border: 1px solid rgba(239, 68, 68, 0.5);
+      color: #fca5a5;
+    }
+
+    /* History & Reconciliation Styles */
+    .history-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 16px;
+      padding: 14px;
+      backdrop-filter: blur(12px);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #c7d2fe;
+    }
+
+    .rec-item {
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      border-radius: 12px;
+      padding: 10px;
+      margin-bottom: 8px;
+      font-size: 0.78rem;
+      transition: all 0.2s;
+    }
+
+    .rec-item:hover {
+      border-color: rgba(99, 102, 241, 0.35);
+    }
+
+    .rec-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .rec-title {
+      font-weight: 700;
+      color: #f1f5f9;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .badge {
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+    }
+
+    .badge-win {
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #34d399;
+    }
+
+    .badge-lose {
+      background: rgba(148, 163, 184, 0.15);
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      color: #94a3b8;
+    }
+
+    .badge-pending {
+      background: rgba(99, 102, 241, 0.18);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      color: #a5b4fc;
+    }
+
+    .rec-sub {
+      color: var(--text-muted);
+      font-size: 0.73rem;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+
+    .rec-details {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed rgba(255, 255, 255, 0.08);
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .rec-ticket-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(2, 6, 23, 0.5);
+      padding: 5px 8px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+    }
+
+    .mini-ball-hit-red {
+      background: #ef4444 !important;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.85);
+      border: 1px solid #fee2e2;
+    }
+
+    .mini-ball-hit-blue {
+      background: #3b82f6 !important;
+      box-shadow: 0 0 8px rgba(59, 130, 246, 0.85);
+      border: 1px solid #dbeafe;
+    }
+
+    .mini-ball-miss {
+      opacity: 0.45;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(50px);
+      background: rgba(15, 23, 42, 0.95);
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border: 1px solid var(--primary);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+      opacity: 0;
+      transition: all 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Dynamic Warning / Expiration Banners -->
+  <div id="banner-container" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 2px;">
+    <div id="offline-banner" class="banner banner-warning" style="display: none;">
+      ⚠️ 当前处于离线状态，正在使用本地历史缓存候选池。请务必核对目标期号！
+    </div>
+    <div id="error-banner" class="banner banner-danger" style="display: none;">
+      ❌ 候选池加载失败且本地无任何缓存，请检查网络连接后刷新重试！
+    </div>
+    <div id="expired-banner" class="banner banner-danger" style="display: none;">
+      ⚠️ 当前候选池已过期（开奖日 21:15 已截止），请刷新页面或等待云端更新，切勿直接照买！
+    </div>
+  </div>
+
+  <!-- Top Meta Card -->
+  <div class="header-card">
+    <div class="title-row">
+      <div class="title">🎱 双色球 · 易数终审选号</div>
+      <div class="tag-live" id="target-issue-badge">第 26140 期</div>
+    </div>
+    <div class="meta-grid">
+      <div>开奖日: <span class="meta-val" id="meta-draw-date">加载中...</span></div>
+      <div>更新时间: <span class="meta-val" id="meta-gen-time">-</span></div>
+    </div>
+    <div class="latest-draw-row" id="latest-draw-row">
+      <span>上期开奖: <b id="latest-issue-str">26139</b></span>
+      <div id="latest-balls-box"></div>
+    </div>
+  </div>
+
+  <!-- Interactive Divination Box -->
+  <div class="control-card">
+    <div class="section-title">🌸 现场一念起卦终审</div>
+
+    <div class="form-group">
+      <div class="form-label">
+        <span>购彩时间</span>
+        <span id="shichen-label" style="color: #a5b4fc; font-weight: 600;">酉时 (10)</span>
+      </div>
+      <input type="datetime-local" id="purchase-time-input">
+    </div>
+
+    <div class="form-group">
+      <div class="form-label">
+        <span>心动报数 (输入 1~3 个正整数)</span>
+        <span style="color: #94a3b8;">如: 3 8 或 12, 27</span>
+      </div>
+      <div class="input-row">
+        <input type="text" id="numbers-input" placeholder="输入心动数字 (如 3 8)">
+        <button class="btn-secondary" id="btn-random-nums">🎲 随缘报数</button>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <div class="form-label"><span>选号模式</span></div>
+      <div class="mode-switch">
+        <div class="mode-tab active" data-mode="balanced">稳健保底 (5不同蓝)</div>
+        <div class="mode-tab" data-mode="jackpot">冲大奖型 (锁单蓝)</div>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-top: -2px;">
+      <div class="form-label">
+        <span>梅花融合权重 (Gamma)</span>
+        <span id="gamma-label" style="color: #c7d2fe;">30%</span>
+      </div>
+      <input type="range" id="gamma-slider" min="0.10" max="0.70" step="0.05" value="0.30" style="accent-color: var(--primary);">
+    </div>
+
+    <button class="btn-primary" id="btn-divine">
+      <span>🔮 起卦锁定 5 注号码</span>
+    </button>
+  </div>
+
+  <!-- Hexagram Result Card -->
+  <div class="hexagram-card" id="hexagram-card">
+    <div class="section-title">📐 卦象排盘与生克总断</div>
+    <div class="hex-flow">
+      <div class="hex-item">
+        <div class="symbol" id="hex-main-sym">☲☷</div>
+        <div class="name" id="hex-main-name">离坤卦</div>
+        <div class="tag" id="hex-main-tiyong">体火/用土</div>
+      </div>
+      <div class="hex-arrow">→</div>
+      <div class="hex-item">
+        <div class="symbol" id="hex-mut-sym">☵☶</div>
+        <div class="name" id="hex-mut-name">坎艮卦</div>
+        <div class="tag">互卦过程</div>
+      </div>
+      <div class="hex-arrow">→</div>
+      <div class="hex-item">
+        <div class="symbol" id="hex-trans-sym">☲☶</div>
+        <div class="name" id="hex-trans-name">离艮卦</div>
+        <div class="tag" id="hex-trans-tag">变卦结果</div>
+      </div>
+    </div>
+
+    <div class="fortune-box" id="fortune-box">
+      <div class="fortune-header">
+        <span class="fortune-rating" id="fortune-rating">【大吉】</span>
+        <span id="moving-line-badge" style="font-size: 0.75rem; color: #94a3b8;">第 3 爻动</span>
+      </div>
+      <div class="fortune-desc" id="fortune-desc">生扶得力，可按计划出手。</div>
+      <div class="wuxing-tags">
+        <span class="tag-fav" id="fav-wuxing-tag">喜用: 木 / 火</span>
+        <span class="tag-avoid" id="avoid-wuxing-tag">忌讳: 水 / 土</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Final 5 Tickets Container -->
+  <div class="tickets-container" id="tickets-container" style="display: none;">
+    <div class="section-title" style="margin-top: 4px;">
+      <span>🎯 终审精选 5 注 (严格锁定原注数字)</span>
+    </div>
+
+    <div id="tickets-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
+
+    <div class="actions-bar">
+      <button class="btn-copy" id="btn-copy-all">📋 一键复制 5 注号码 (含卦象)</button>
+    </div>
+
+    <div style="font-size: 0.72rem; color: #10b981; text-align: center; margin-top: 4px;">
+      🔒 铁律校验通过: 未改动原注任何数字 · 蓝球去重通过 · 单球频次 ≤ 2
+    </div>
+  </div>
+
+  <!-- History & Reconciliation Box -->
+  <div class="history-card" id="history-box" style="display: none;">
+    <div class="history-header">
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <span>📜 本地起卦记录与自动对账</span>
+        <span class="badge" style="background: rgba(99, 102, 241, 0.2); color: #c7d2fe;" id="history-count-badge">0 条</span>
+      </div>
+      <span style="cursor: pointer; color: #f43f5e; font-size: 0.78rem;" id="btn-clear-history">清空记录</span>
+    </div>
+    <div id="history-list"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast">复制成功</div>
+
+<script>
+// --- Standardized Meihua Yi-Shu Engine (100% equivalent to src/meihua.py) ---
+const BAGUA_CONFIG = {
+  1: { name: '乾', symbol: '☰', element: '金', bits: [1, 1, 1] },
+  2: { name: '兑', symbol: '☱', element: '金', bits: [1, 1, 0] },
+  3: { name: '离', symbol: '☲', element: '火', bits: [1, 0, 1] },
+  4: { name: '震', symbol: '☳', element: '木', bits: [1, 0, 0] },
+  5: { name: '巽', symbol: '☴', element: '木', bits: [0, 1, 1] },
+  6: { name: '坎', symbol: '☵', element: '水', bits: [0, 1, 0] },
+  7: { name: '艮', symbol: '☶', element: '土', bits: [0, 0, 1] },
+  8: { name: '坤', symbol: '☷', element: '土', bits: [0, 0, 0] },
+};
+
+const BITS_TO_BAGUA = {};
+for (const [k, v] of Object.entries(BAGUA_CONFIG)) {
+  BITS_TO_BAGUA[v.bits.join('')] = parseInt(k);
+}
+
+const SHICHEN_NAMES = ['子时', '丑时', '寅时', '卯时', '辰时', '巳时', '午时', '未时', '申时', '酉时', '戌时', '亥时'];
+const WUXING_GEN = { '木': '火', '火': '土', '土': '金', '金': '水', '水': '木' };
+const WUXING_COUNTER = { '木': '土', '土': '水', '水': '火', '火': '金', '金': '木' };
+const DIGIT_TO_WUXING = { 1: '水', 6: '水', 2: '火', 7: '火', 3: '木', 8: '木', 4: '金', 9: '金', 5: '土', 0: '土' };
+
+function getShichenNum(date) {
+  const h = date.getHours();
+  if (h >= 23 || h < 1) return 1;
+  return Math.floor((h + 1) / 2) + 1;
+}
+
+function getBallWuxing(ball) {
+  return DIGIT_TO_WUXING[ball % 10];
+}
+
+function parseUserNumbers(numbers, shichenNum) {
+  if (!numbers || numbers.length === 0) numbers = [shichenNum, shichenNum + 3];
+  if (numbers.length === 1) {
+    const s = String(numbers[0]);
+    if (s.length >= 2) {
+      const mid = Math.floor(s.length / 2);
+      const n1 = parseInt(s.substring(0, mid)) || 1;
+      const n2 = parseInt(s.substring(mid)) || 1;
+      return [(n1 % 8) || 8, (n2 % 8) || 8, ((n1 + n2 + shichenNum) % 6) || 6];
+    } else {
+      const n = numbers[0];
+      return [(n % 8) || 8, (shichenNum % 8) || 8, ((n + shichenNum) % 6) || 6];
+    }
+  } else if (numbers.length === 2) {
+    const n1 = numbers[0], n2 = numbers[1];
+    return [(n1 % 8) || 8, (n2 % 8) || 8, ((n1 + n2 + shichenNum) % 6) || 6];
+  } else {
+    const sum = numbers.reduce((a, b) => a + b, 0);
+    return [(numbers[0] % 8) || 8, (numbers[1] % 8) || 8, ((sum + shichenNum) % 6) || 6];
+  }
+}
+
+function calculateHexagrams(upperNum, lowerNum, movingLine) {
+  const uBits = BAGUA_CONFIG[upperNum].bits;
+  const lBits = BAGUA_CONFIG[lowerNum].bits;
+  const mainLines = [...lBits, ...uBits];
+
+  const lowerMutBits = mainLines.slice(1, 4);
+  const upperMutBits = mainLines.slice(2, 5);
+  const lowerMutNum = BITS_TO_BAGUA[lowerMutBits.join('')];
+  const upperMutNum = BITS_TO_BAGUA[upperMutBits.join('')];
+
+  const transLines = [...mainLines];
+  transLines[movingLine - 1] = 1 - transLines[movingLine - 1];
+  const transLowerBits = transLines.slice(0, 3);
+  const transUpperBits = transLines.slice(3, 6);
+  const transLowerNum = BITS_TO_BAGUA[transLowerBits.join('')];
+  const transUpperNum = BITS_TO_BAGUA[transUpperBits.join('')];
+
+  let tiPosition, tiNum, yongPosition, yongNum, transYongNum;
+  if ([1, 2, 3].includes(movingLine)) {
+    tiPosition = '上卦'; tiNum = upperNum;
+    yongPosition = '下卦'; yongNum = lowerNum;
+    transYongNum = transLowerNum;
+  } else {
+    tiPosition = '下卦'; tiNum = lowerNum;
+    yongPosition = '上卦'; yongNum = upperNum;
+    transYongNum = transUpperNum;
+  }
+
+  return {
+    movingLine,
+    main: {
+      name: `${BAGUA_CONFIG[upperNum].name}${BAGUA_CONFIG[lowerNum].name}`,
+      upper: BAGUA_CONFIG[upperNum], lower: BAGUA_CONFIG[lowerNum],
+      symbol: `${BAGUA_CONFIG[upperNum].symbol}${BAGUA_CONFIG[lowerNum].symbol}`
+    },
+    mutual: {
+      name: `${BAGUA_CONFIG[upperMutNum].name}${BAGUA_CONFIG[lowerMutNum].name}`,
+      upper: BAGUA_CONFIG[upperMutNum], lower: BAGUA_CONFIG[lowerMutNum],
+      symbol: `${BAGUA_CONFIG[upperMutNum].symbol}${BAGUA_CONFIG[lowerMutNum].symbol}`
+    },
+    transformed: {
+      name: `${BAGUA_CONFIG[transUpperNum].name}${BAGUA_CONFIG[transLowerNum].name}`,
+      upper: BAGUA_CONFIG[transUpperNum], lower: BAGUA_CONFIG[transLowerNum],
+      symbol: `${BAGUA_CONFIG[transUpperNum].symbol}${BAGUA_CONFIG[transLowerNum].symbol}`
+    },
+    ti: { position: tiPosition, name: BAGUA_CONFIG[tiNum].name, element: BAGUA_CONFIG[tiNum].element },
+    yong: { position: yongPosition, name: BAGUA_CONFIG[yongNum].name, element: BAGUA_CONFIG[yongNum].element },
+    transYong: { name: BAGUA_CONFIG[transYongNum].name, element: BAGUA_CONFIG[transYongNum].element }
+  };
+}
+
+function analyzeWuxingRelation(source, target) {
+  if (source === target) return 'same';
+  if (WUXING_GEN[source] === target) return 'generate';
+  if (WUXING_COUNTER[source] === target) return 'counter';
+  if (WUXING_GEN[target] === source) return 'leak';
+  if (WUXING_COUNTER[target] === source) return 'control';
+  return 'neutral';
+}
+
+function evaluateDivination(hex) {
+  const ti = hex.ti.element;
+  const yong = hex.yong.element;
+  const transYong = hex.transYong.element;
+  const mutUpper = hex.mutual.upper.element;
+  const mutLower = hex.mutual.lower.element;
+
+  const mainRel = analyzeWuxingRelation(yong, ti);
+  const transRel = analyzeWuxingRelation(transYong, ti);
+  const mutUpperRel = analyzeWuxingRelation(mutUpper, ti);
+  const mutLowerRel = analyzeWuxingRelation(mutLower, ti);
+
+  let rating, desc, color;
+  // 1. 变用克体 (transRel === 'counter'): 结局回头克，大忌
+  if (transRel === 'counter') {
+    rating = '偏克 · 慎出';
+    color = '#ef4444';
+    if (mainRel === 'counter') {
+      desc = '主用相克且变卦回头交克，互卦亦无生扶，当刻气机偏逆，大受制约，建议减注观望或换个时辰定夺。';
+    } else if (mainRel === 'leak') {
+      desc = '初卦体生用耗散元气，变卦回头见克，互卦克泄交加，当刻气机偏逆，建议减注观望或换个时辰定夺。';
+    } else if (['generate', 'same'].includes(mainRel)) {
+      desc = '初卦虽见生扶比和，但变卦回头克体，先吉后凶，后劲受阻，建议谨慎观望。';
+    } else {
+      desc = '终局见变用回头克体，破耗受制，气机受阻，建议保守观望。';
+    }
+  } else if (transRel === 'leak') {
+    if (['counter', 'leak'].includes(mainRel)) {
+      rating = '泄气 · 宜守';
+      desc = '体卦生用泄耗元气，全盘气机虚耗，难聚财星，不宜重注，宜守不宜急。';
+      color = '#8b5cf6';
+    } else if (['generate', 'same'].includes(mainRel)) {
+      rating = '平卦';
+      desc = '初有生扶而终见耗泄，吉凶平缓，互见消长，按需小额娱乐。';
+      color = '#6b7280';
+    } else {
+      rating = '平卦';
+      desc = '体虽克用求财但终局耗损，得失相抵，平缓定夺。';
+      color = '#6b7280';
+    }
+  } else if (['generate', 'same'].includes(transRel)) {
+    if (['generate', 'same'].includes(mainRel)) {
+      rating = '大吉';
+      desc = '主用相生比和，变卦回头生旺体卦，生扶得力，后劲充沛，可按计划果断出手。';
+      color = '#10b981';
+    } else if (['counter', 'leak'].includes(mainRel)) {
+      rating = '中吉 · 转吉';
+      desc = '初卦虽有克泄波折，但变卦生扶体卦，转危为安，后劲充足，可顺势小额跟进。';
+      color = '#3b82f6';
+    } else {
+      rating = '大吉';
+      desc = '体克用求财得地，变卦更回头生旺体卦，财印两全，利于果断出击。';
+      color = '#10b981';
+    }
+  } else if (transRel === 'control') {
+    if (['generate', 'same', 'control'].includes(mainRel)) {
+      rating = '中吉 · 财星得地';
+      desc = '体克用为财星，求财可得，利于主动出击，顺势跟进。';
+      color = '#f59e0b';
+    } else if (mainRel === 'counter') {
+      rating = '平卦';
+      desc = '初受克制而终局克用求财，劳心费力，吉凶互见，小额参与。';
+      color = '#6b7280';
+    } else {
+      rating = '平卦';
+      desc = '初虽泄气但终能克用得财，耗力求进，平和对待。';
+      color = '#6b7280';
+    }
+  } else {
+    rating = '平卦';
+    desc = '吉凶互见，体用平缓无冲克，平和定夺，按需小额娱乐。';
+    color = '#6b7280';
+  }
+
+  // 互卦全克泄降档保护
+  if (rating === '平卦') {
+    const allHarm = [mainRel, mutUpperRel, mutLowerRel, transRel].every(r => ['counter', 'leak'].includes(r));
+    if (allHarm) {
+      rating = '泄气 · 宜守';
+      desc = '主卦、互卦与变卦克泄交加，全无生扶，气机消退，宜守不宜急。';
+      color = '#8b5cf6';
+    }
+  }
+
+  const weights = {};
+  for (const elem of ['金', '木', '水', '火', '土']) {
+    const rel = analyzeWuxingRelation(elem, ti);
+    let w = 0.0;
+    if (rel === 'generate') w = 1.0;
+    else if (rel === 'same') w = 0.8;
+    else if (rel === 'control') w = 0.4;
+    else if (rel === 'leak') w = -0.5;
+    else if (rel === 'counter') w = -1.0;
+    if (elem === transYong && ['generate', 'same'].includes(transRel)) w += 0.1;
+    weights[elem] = Math.round(w * 100) / 100;
+  }
+
+  const favored = Object.keys(weights).filter(k => weights[k] > 0).sort((a, b) => weights[b] - weights[a]);
+  const avoided = Object.keys(weights).filter(k => weights[k] < 0).sort((a, b) => weights[a] - weights[b]);
+
+  return { rating, desc, color, weights, favored, avoided };
+}
+
+function scoreTicketMeihua(reds, blue, weights) {
+  let redSum = 0;
+  for (const r of reds) redSum += (weights[getBallWuxing(r)] || 0);
+  const redMean = redSum / reds.length;
+  const blueW = weights[getBallWuxing(blue)] || 0;
+  return redMean + 1.5 * blueW;
+}
+
+// Pruned DFS ticket selector (100% equivalent to Python DFS)
+function selectMeihuaTickets(pool, date, numbers, mode, gamma) {
+  const shichenNum = getShichenNum(date);
+  const [uNum, lNum, movLine] = parseUserNumbers(numbers, shichenNum);
+  const hex = calculateHexagrams(uNum, lNum, movLine);
+  const fortune = evaluateDivination(hex);
+
+  // Score tickets
+  const rawMeihua = pool.map(t => scoreTicketMeihua(t.reds, t.blue, fortune.weights));
+  const baseScores = pool.map(t => t.composite_score || 0.5);
+
+  const minM = Math.min(...rawMeihua), maxM = Math.max(...rawMeihua);
+  const minB = Math.min(...baseScores), maxB = Math.max(...baseScores);
+  const denomM = (maxM - minM) + 1e-9;
+  const denomB = (maxB - minB) + 1e-9;
+
+  const scoredPool = pool.map((t, idx) => {
+    const normM = (rawMeihua[idx] - minM) / denomM;
+    const normB = (baseScores[idx] - minB) / denomB;
+    const finalScore = (1 - gamma) * normB + gamma * normM;
+    const favSet = new Set(fortune.favored);
+    const matchedFavReds = t.reds.filter(r => favSet.has(getBallWuxing(r)));
+    return {
+      ...t,
+      original_rank: t.rank || (idx + 1),
+      meihua_score: normM,
+      final_meihua_score: finalScore,
+      matched_fav_reds: matchedFavReds,
+    };
+  });
+
+  scoredPool.sort((a, b) => b.final_meihua_score - a.final_meihua_score);
+
+  // DFS search for optimal 5 tickets under ball_freq <= 2 (and <= 3 fallback)
+  let selected = [];
+  for (const maxFreq of [2, 3, 5]) {
+    let bestCombo = null;
+    let bestSum = -1e9;
+
+    function dfs(idx, cur, usedBlues, ballCounts, curSum) {
+      if (cur.length === 5) {
+        if (curSum > bestSum) {
+          bestSum = curSum;
+          bestCombo = [...cur];
+        }
+        return;
+      }
+      if (idx >= scoredPool.length) return;
+      const rem = 5 - cur.length;
+      if (curSum + rem * scoredPool[idx].final_meihua_score <= bestSum) return;
+
+      const t = scoredPool[idx];
+      let canAdd = true;
+      if (mode === 'balanced' && usedBlues.has(t.blue)) canAdd = false;
+      if (canAdd) {
+        for (const r of t.reds) {
+          if ((ballCounts[r] || 0) >= maxFreq) { canAdd = false; break; }
+        }
+      }
+
+      if (canAdd) {
+        if (mode === 'balanced') usedBlues.add(t.blue);
+        for (const r of t.reds) ballCounts[r] = (ballCounts[r] || 0) + 1;
+        cur.push(t);
+
+        dfs(idx + 1, cur, usedBlues, ballCounts, curSum + t.final_meihua_score);
+
+        cur.pop();
+        for (const r of t.reds) ballCounts[r] -= 1;
+        if (mode === 'balanced') usedBlues.delete(t.blue);
+      }
+
+      dfs(idx + 1, cur, usedBlues, ballCounts, curSum);
+    }
+
+    dfs(0, [], new Set(), {}, 0.0);
+    if (bestCombo && bestCombo.length === 5) {
+      selected = bestCombo;
+      break;
+    }
+  }
+
+  return { hex, fortune, selected, shichenNum };
+}
+
+// --- UI Interaction Logic ---
+let POOL_DATA = null;
+let currentMode = 'balanced';
+let lastResult = null;
+
+// Initialize time input
+const timeInput = document.getElementById('purchase-time-input');
+const now = new Date();
+timeInput.value = new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+updateShichenBadge();
+
+timeInput.addEventListener('change', updateShichenBadge);
+
+function updateShichenBadge() {
+  const d = new Date(timeInput.value || Date.now());
+  const num = getShichenNum(d);
+  document.getElementById('shichen-label').textContent = `${SHICHEN_NAMES[num - 1]} (${num})`;
+}
+
+// Random numbers generator
+document.getElementById('btn-random-nums').addEventListener('click', () => {
+  const r1 = Math.floor(Math.random() * 20) + 1;
+  const r2 = Math.floor(Math.random() * 20) + 1;
+  document.getElementById('numbers-input').value = `${r1} ${r2}`;
+});
+
+// Mode switch tabs
+document.querySelectorAll('.mode-tab').forEach(tab => {
+  tab.addEventListener('click', (e) => {
+    document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentMode = tab.dataset.mode;
+    if (lastResult) runDivination();
+  });
+});
+
+// Gamma slider
+const gammaSlider = document.getElementById('gamma-slider');
+const gammaLabel = document.getElementById('gamma-label');
+gammaSlider.addEventListener('input', () => {
+  gammaLabel.textContent = `${Math.round(gammaSlider.value * 100)}%`;
+});
+
+// Load Pool Data
+async function loadPoolData() {
+  const offlineBanner = document.getElementById('offline-banner');
+  const errorBanner = document.getElementById('error-banner');
+  const btnDivine = document.getElementById('btn-divine');
+
+  offlineBanner.style.display = 'none';
+  errorBanner.style.display = 'none';
+
+  try {
+    const res = await fetch('./data/pool.json?t=' + Date.now(), { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    POOL_DATA = await res.json();
+    // Cache the real pool in localStorage
+    localStorage.setItem('ssq_last_real_pool', JSON.stringify(POOL_DATA));
+    btnDivine.disabled = false;
+    btnDivine.style.opacity = '1';
+    btnDivine.style.cursor = 'pointer';
+    renderMeta(POOL_DATA);
+    checkExpiration(POOL_DATA);
+    reconcileAndRenderHistory(getRecentDraws(POOL_DATA));
+  } catch (e) {
+    console.warn('Fetch pool.json failed:', e);
+    // Check if we have cached real pool
+    const cachedStr = localStorage.getItem('ssq_last_real_pool');
+    if (cachedStr) {
+      try {
+        POOL_DATA = JSON.parse(cachedStr);
+        offlineBanner.style.display = 'flex';
+        btnDivine.disabled = false;
+        btnDivine.style.opacity = '1';
+        btnDivine.style.cursor = 'pointer';
+        renderMeta(POOL_DATA);
+        checkExpiration(POOL_DATA);
+        reconcileAndRenderHistory(getRecentDraws(POOL_DATA));
+        showToast('⚠️ 离线中：已读取本地最后一次真实候选池');
+        return;
+      } catch (err) {
+        console.error('Failed to parse cached pool:', err);
+      }
+    }
+    // If no cache exists, strictly fail without using any fake data
+    errorBanner.style.display = 'flex';
+    btnDivine.disabled = true;
+    btnDivine.style.opacity = '0.5';
+    btnDivine.style.cursor = 'not-allowed';
+    document.getElementById('target-issue-badge').textContent = '加载失败';
+    document.getElementById('meta-draw-date').textContent = '无网络且无本地缓存';
+    showToast('❌ 加载失败：现场无网络且无本地缓存');
+  }
+}
+
+function checkExpiration(data) {
+  const expiredBanner = document.getElementById('expired-banner');
+  expiredBanner.style.display = 'none';
+  if (!data || !data.meta || !data.meta.target_draw_date) return;
+
+  const dateStr = data.meta.target_draw_date;
+  const match = dateStr.match(/(\d{4}-\d{2}-\d{2})/);
+  if (!match) return;
+
+  const drawDatePart = match[1];
+  // 超过开奖日 21:15 视为已截止过期
+  const cutoffTime = new Date(`${drawDatePart}T21:15:00`).getTime();
+  const nowTime = Date.now();
+
+  if (nowTime > cutoffTime) {
+    expiredBanner.style.display = 'flex';
+  }
+}
+
+function getRecentDraws(data) {
+  if (!data) return [];
+  return data.recent_draws || data.meta?.recent_draws || (data.meta?.latest_draw ? [data.meta.latest_draw] : []);
+}
+
+function renderMeta(data) {
+  const meta = data.meta;
+  document.getElementById('target-issue-badge').textContent = `第 ${meta.target_issue} 期`;
+  document.getElementById('meta-draw-date').textContent = meta.target_draw_date;
+  document.getElementById('meta-gen-time').textContent = meta.generated_at.split(' ')[1] || meta.generated_at;
+
+  if (meta.latest_draw) {
+    document.getElementById('latest-issue-str').textContent = meta.latest_draw.issue;
+    const box = document.getElementById('latest-balls-box');
+    box.innerHTML = '';
+    meta.latest_draw.reds.forEach(r => {
+      const sp = document.createElement('span');
+      sp.className = 'mini-ball mini-red';
+      sp.textContent = String(r).padStart(2, '0');
+      box.appendChild(sp);
+    });
+    const sb = document.createElement('span');
+    sb.className = 'mini-ball mini-blue';
+    sb.textContent = String(meta.latest_draw.blue).padStart(2, '0');
+    box.appendChild(sb);
+  }
+}
+
+// Perform Divination
+function runDivination() {
+  if (!POOL_DATA || !POOL_DATA.pools) {
+    showToast('正在加载候选池数据，请稍候...');
+    return;
+  }
+  const pool = POOL_DATA.pools[currentMode];
+  if (!pool || pool.length === 0) {
+    showToast('该模式候选池暂无数据');
+    return;
+  }
+
+  const dt = new Date(timeInput.value || Date.now());
+  const numStr = document.getElementById('numbers-input').value.trim();
+  let numbers = (numStr.match(/\d+/g) || []).map(Number);
+  if (numbers.length === 0) {
+    numbers = [3, 8];
+    document.getElementById('numbers-input').value = '3 8';
+  }
+
+  const gamma = parseFloat(gammaSlider.value) || 0.30;
+  lastResult = selectMeihuaTickets(pool, dt, numbers, currentMode, gamma);
+
+  // Render Hexagram
+  const hex = lastResult.hex;
+  const fortune = lastResult.fortune;
+
+  document.getElementById('hexagram-card').style.display = 'flex';
+  document.getElementById('hex-main-sym').textContent = hex.main.symbol;
+  document.getElementById('hex-main-name').textContent = `${hex.main.name}卦`;
+  document.getElementById('hex-main-tiyong').textContent = `体${hex.ti.element}/用${hex.yong.element}`;
+
+  document.getElementById('hex-mut-sym').textContent = hex.mutual.symbol;
+  document.getElementById('hex-mut-name').textContent = `${hex.mutual.name}卦`;
+
+  document.getElementById('hex-trans-sym').textContent = hex.transformed.symbol;
+  document.getElementById('hex-trans-name').textContent = `${hex.transformed.name}卦`;
+  document.getElementById('hex-trans-tag').textContent = `变用: ${hex.transYong.element}`;
+
+  document.getElementById('fortune-rating').textContent = `【${fortune.rating}】`;
+  document.getElementById('fortune-rating').style.color = fortune.color;
+  document.getElementById('moving-line-badge').textContent = `第 ${hex.movingLine} 爻动 (${SHICHEN_NAMES[lastResult.shichenNum - 1]})`;
+  document.getElementById('fortune-desc').textContent = fortune.desc;
+  document.getElementById('fortune-box').style.borderLeftColor = fortune.color;
+
+  document.getElementById('fav-wuxing-tag').textContent = `喜用: ${fortune.favored.join(' / ') || '平'}`;
+  document.getElementById('avoid-wuxing-tag').textContent = `忌讳: ${fortune.avoided.join(' / ') || '无'}`;
+
+  // Render Tickets
+  const list = document.getElementById('tickets-list');
+  list.innerHTML = '';
+  document.getElementById('tickets-container').style.display = 'flex';
+
+  lastResult.selected.forEach((t, i) => {
+    const card = document.createElement('div');
+    card.className = 'ticket-card';
+
+    const favSet = new Set(fortune.favored);
+    const redBallsHtml = t.reds.map(r => {
+      const isFav = favSet.has(getBallWuxing(r));
+      return `<div class="ball ball-red">${String(r).padStart(2, '0')}${isFav ? '<div class="fav-dot"></div>' : ''}</div>`;
+    }).join('');
+
+    const isBlueFav = favSet.has(getBallWuxing(t.blue));
+    const blueBallHtml = `<div class="ball ball-blue">${String(t.blue).padStart(2, '0')}${isBlueFav ? '<div class="fav-dot"></div>' : ''}</div>`;
+
+    card.innerHTML = `
+      <div class="ticket-top">
+        <span class="ticket-idx">第 ${i + 1} 注 (原排名 #${t.original_rank})</span>
+        <span>终审分: <b style="color: #60a5fa;">${t.final_meihua_score.toFixed(4)}</b></span>
+      </div>
+      <div class="balls-row">
+        ${redBallsHtml}
+        ${blueBallHtml}
+      </div>
+      <div class="ticket-footer">
+        <span>基底分: ${t.composite_score.toFixed(4)}</span>
+        <span>梅花契合: ${(t.meihua_score * 100).toFixed(1)}%</span>
+        <span>喜用球: ${t.matched_fav_reds.length}个</span>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+
+  // Save to history log
+  saveDivinationRecord(lastResult, numbers, dt);
+
+  // Scroll to hexagram
+  document.getElementById('hexagram-card').scrollIntoView({ behavior: 'smooth' });
+}
+
+document.getElementById('btn-divine').addEventListener('click', runDivination);
+
+// Copy Tickets
+document.getElementById('btn-copy-all').addEventListener('click', () => {
+  if (!lastResult || !lastResult.selected) return;
+  const lines = [];
+  lines.push(`【双色球易数终审】目标期号: ${POOL_DATA?.meta?.target_issue || ''}`);
+  lines.push(`卦象: ${lastResult.hex.main.name}卦变${lastResult.hex.transformed.name}卦 (评级: ${lastResult.fortune.rating})`);
+  lines.push(`五行喜用: ${lastResult.fortune.favored.join('、')}`);
+  lines.push('------------------------');
+  lastResult.selected.forEach((t, i) => {
+    const reds = t.reds.map(r => String(r).padStart(2, '0')).join(' ');
+    const blue = String(t.blue).padStart(2, '0');
+    lines.push(`第${i + 1}注: ${reds} + ${blue}`);
+  });
+  lines.push('------------------------');
+  lines.push('已通过防撞号与独享度终审，祝君中奖！');
+
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    showToast('✅ 5 注号码与卦象已复制到剪贴板！');
+  }).catch(() => {
+    showToast('复制失败，请手动截图或复制');
+  });
+});
+
+// Toast notification
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+// SSQ Official Prize Calculation
+function evaluateSSQPrize(ticketReds, ticketBlue, drawReds, drawBlue) {
+  const drawRedSet = new Set(drawReds.map(Number));
+  const redHits = ticketReds.map(Number).filter(r => drawRedSet.has(r));
+  const blueHit = (Number(ticketBlue) === Number(drawBlue));
+  const r = redHits.length;
+  const b = blueHit ? 1 : 0;
+
+  if (r === 6 && b === 1) return { level: '一等奖', amount: 5000000, desc: '6+1 一等奖', redHits, blueHit };
+  if (r === 6 && b === 0) return { level: '二等奖', amount: 150000, desc: '6+0 二等奖', redHits, blueHit };
+  if (r === 5 && b === 1) return { level: '三等奖', amount: 3000, desc: '5+1 三等奖 ¥3000', redHits, blueHit };
+  if ((r === 5 && b === 0) || (r === 4 && b === 1)) return { level: '四等奖', amount: 200, desc: `${r}+${b} 四等奖 ¥200`, redHits, blueHit };
+  if ((r === 4 && b === 0) || (r === 3 && b === 1)) return { level: '五等奖', amount: 10, desc: `${r}+${b} 五等奖 ¥10`, redHits, blueHit };
+  if (b === 1 && (r === 2 || r === 1 || r === 0)) return { level: '六等奖', amount: 5, desc: `${r}+1 六等奖 ¥5`, redHits, blueHit };
+  return { level: '未中奖', amount: 0, desc: `${r}+${b} 未中奖`, redHits, blueHit };
+}
+
+// Local History Storage
+function saveDivinationRecord(res, numbers, dt) {
+  try {
+    const records = JSON.parse(localStorage.getItem('ssq_divination_records') || '[]');
+    const dStr = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')} ${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
+    const newRecord = {
+      id: 'rec_' + Date.now(),
+      created_at: dt.toISOString(),
+      time_display: dStr,
+      target_issue: String(POOL_DATA?.meta?.target_issue || ''),
+      target_draw_date: POOL_DATA?.meta?.target_draw_date || '',
+      mode: currentMode,
+      mode_name: currentMode === 'jackpot' ? '冲大奖型' : '稳健保底',
+      numbers: numbers,
+      shichen: `${SHICHEN_NAMES[res.shichenNum - 1]} (${res.shichenNum})`,
+      main_name: res.hex.main.name,
+      trans_name: res.hex.transformed.name,
+      rating: res.fortune.rating,
+      tickets: res.selected.map(t => ({
+        original_rank: t.original_rank || t.rank,
+        reds: [...t.reds],
+        blue: Number(t.blue),
+        final_score: t.final_meihua_score
+      })),
+      settled: false,
+      total_prize: 0,
+      draw_result: null,
+      ticket_results: []
+    };
+    records.unshift(newRecord);
+    localStorage.setItem('ssq_divination_records', JSON.stringify(records.slice(0, 30)));
+    reconcileAndRenderHistory(getRecentDraws(POOL_DATA));
+  } catch (e) {
+    console.error('Failed to save record:', e);
+  }
+}
+
+function reconcileAndRenderHistory(recentDraws) {
+  try {
+    const records = JSON.parse(localStorage.getItem('ssq_divination_records') || '[]');
+    const box = document.getElementById('history-box');
+    if (records.length === 0) {
+      box.style.display = 'none';
+      return;
+    }
+    box.style.display = 'flex';
+    document.getElementById('history-count-badge').textContent = `${records.length} 条`;
+
+    const drawMap = new Map();
+    (recentDraws || []).forEach(d => {
+      drawMap.set(String(d.issue).padStart(5, '0'), d);
+      drawMap.set(String(d.issue), d);
+    });
+
+    let updated = false;
+    for (const rec of records) {
+      const issueKey = String(rec.target_issue);
+      const paddedKey = issueKey.padStart(5, '0');
+      if (!rec.settled && (drawMap.has(issueKey) || drawMap.has(paddedKey))) {
+        const draw = drawMap.get(issueKey) || drawMap.get(paddedKey);
+        let sumPrize = 0;
+        const ticketResults = [];
+
+        for (const t of rec.tickets) {
+          const evalRes = evaluateSSQPrize(t.reds, t.blue, draw.reds, draw.blue);
+          sumPrize += evalRes.amount;
+          ticketResults.push({
+            reds: t.reds,
+            blue: t.blue,
+            redHits: evalRes.redHits,
+            blueHit: evalRes.blueHit,
+            level: evalRes.level,
+            amount: evalRes.amount,
+            desc: evalRes.desc
+          });
+        }
+
+        rec.settled = true;
+        rec.settled_at = new Date().toISOString();
+        rec.total_prize = sumPrize;
+        rec.draw_result = {
+          issue: draw.issue,
+          date: draw.draw_date,
+          reds: draw.reds,
+          blue: draw.blue
+        };
+        rec.ticket_results = ticketResults;
+        updated = true;
+      }
+    }
+
+    if (updated) {
+      localStorage.setItem('ssq_divination_records', JSON.stringify(records));
+    }
+
+    renderHistoryUI(records);
+  } catch (e) {
+    console.error('Reconciliation error:', e);
+  }
+}
+
+function renderHistoryUI(records) {
+  const list = document.getElementById('history-list');
+  list.innerHTML = '';
+
+  records.forEach((rec, idx) => {
+    const item = document.createElement('div');
+    item.className = 'rec-item';
+
+    // Status Badge
+    let badgeHtml = '';
+    if (rec.settled) {
+      if (rec.total_prize > 0) {
+        badgeHtml = `<span class="badge badge-win">🎉 中奖 ¥${rec.total_prize}</span>`;
+      } else {
+        badgeHtml = `<span class="badge badge-lose">未中奖</span>`;
+      }
+    } else {
+      badgeHtml = `<span class="badge badge-pending">⏳ 待开奖</span>`;
+    }
+
+    // Detail Tickets HTML
+    let detailsHtml = '';
+    if (rec.settled && rec.ticket_results && rec.ticket_results.length > 0) {
+      detailsHtml = rec.ticket_results.map((tr, i) => {
+        const hitRedSet = new Set(tr.redHits.map(Number));
+        const redsBalls = tr.reds.map(r => {
+          const isHit = hitRedSet.has(Number(r));
+          const cls = isHit ? 'mini-ball mini-ball-hit-red' : 'mini-ball mini-red mini-ball-miss';
+          return `<span class="${cls}">${String(r).padStart(2, '0')}</span>`;
+        }).join('');
+
+        const blueCls = tr.blueHit ? 'mini-ball mini-ball-hit-blue' : 'mini-ball mini-blue mini-ball-miss';
+        const blueBall = `<span class="${blueCls}">${String(tr.blue).padStart(2, '0')}</span>`;
+
+        const winHighlight = tr.amount > 0 ? `color: #34d399; font-weight: 700;` : `color: #94a3b8;`;
+        return `
+          <div class="rec-ticket-row">
+            <span style="color: #cbd5e1;">第${i + 1}注:</span>
+            <div style="display: flex; gap: 2px;">${redsBalls} ${blueBall}</div>
+            <span style="${winHighlight}">${tr.desc}</span>
+          </div>
+        `;
+      }).join('');
+    } else {
+      detailsHtml = rec.tickets.map((t, i) => {
+        const redsBalls = t.reds.map(r => `<span class="mini-ball mini-red">${String(r).padStart(2, '0')}</span>`).join('');
+        const blueBall = `<span class="mini-ball mini-blue">${String(t.blue).padStart(2, '0')}</span>`;
+        return `
+          <div class="rec-ticket-row">
+            <span style="color: #cbd5e1;">第${i + 1}注:</span>
+            <div style="display: flex; gap: 2px;">${redsBalls} ${blueBall}</div>
+            <span style="color: #94a3b8;">待开奖</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    item.innerHTML = `
+      <div class="rec-top">
+        <div class="rec-title">
+          <span>第 ${rec.target_issue} 期</span>
+          <span style="color: #818cf8; font-size: 0.73rem;">· ${rec.mode_name}</span>
+          <span style="color: #94a3b8; font-size: 0.72rem;">· ${rec.main_name}→${rec.trans_name}</span>
+        </div>
+        ${badgeHtml}
+      </div>
+      <div class="rec-sub">
+        <span>起卦: ${rec.time_display} · [${rec.numbers.join(', ')}]</span>
+        <span>投入: ¥10 ${rec.settled && rec.draw_result ? `(开奖: ${rec.draw_result.reds.map(r=>String(r).padStart(2,'0')).join(' ')}+${String(rec.draw_result.blue).padStart(2,'0')})` : ''}</span>
+      </div>
+      <div class="rec-details">
+        ${detailsHtml}
+      </div>
+    `;
+
+    list.appendChild(item);
+  });
+}
+
+document.getElementById('btn-clear-history').addEventListener('click', () => {
+  if (confirm('确定要清空本地所有起卦与对账记录吗？')) {
+    localStorage.removeItem('ssq_divination_records');
+    reconcileAndRenderHistory([]);
+    showToast('已清空本地起卦记录');
+  }
+});
+
+// Boot
+loadPoolData();
+reconcileAndRenderHistory([]);
+</script>
+</body>
+</html>

@@ -1,0 +1,520 @@
+"""Meihua Yishu (梅花易数) Engine for SSQ Lottery.
+
+Pure mathematical and Yi-Jing divination engine based on:
+1. Xiantian Bagua & 3-bit line encoding
+2. Purchasing time (hour -> 12 earthly branches) & user numbers
+3. Hexagram derivation: Main, Mutual, and Transformed hexagrams
+4. Ti-Yong (体用) dynamic identification & Wuxing interaction
+5. Hetu (河图) ending digits mapping to Wuxing
+6. Non-destructive final audit ranking for Top-20 candidate pool
+"""
+import math
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
+
+# 1. Xiantian Bagua definitions (1-indexed)
+# 3-bit binary: (first_line, second_line, third_line) from bottom to top (Yang=1, Yin=0)
+BAGUA_CONFIG: Dict[int, Dict[str, Any]] = {
+    1: {'name': '乾', 'symbol': '☰', 'element': '金', 'bits': (1, 1, 1)},
+    2: {'name': '兑', 'symbol': '☱', 'element': '金', 'bits': (1, 1, 0)},
+    3: {'name': '离', 'symbol': '☲', 'element': '火', 'bits': (1, 0, 1)},
+    4: {'name': '震', 'symbol': '☳', 'element': '木', 'bits': (1, 0, 0)},
+    5: {'name': '巽', 'symbol': '☴', 'element': '木', 'bits': (0, 1, 1)},
+    6: {'name': '坎', 'symbol': '☵', 'element': '水', 'bits': (0, 1, 0)},
+    7: {'name': '艮', 'symbol': '☶', 'element': '土', 'bits': (0, 0, 1)},
+    8: {'name': '坤', 'symbol': '☷', 'element': '土', 'bits': (0, 0, 0)},
+}
+
+# Reverse lookup: bits tuple -> bagua number
+BITS_TO_BAGUA = {v['bits']: k for k, v in BAGUA_CONFIG.items()}
+
+# Earthly branches for hours
+# 子(23-1)=1, 丑(1-3)=2, 寅(3-5)=3, 卯(5-7)=4, 辰(7-9)=5, 巳(9-11)=6,
+# 午(11-13)=7, 未(13-15)=8, 申(15-17)=9, 酉(17-19)=10, 戌(19-21)=11, 亥(21-23)=12
+SHICHEN_NAMES = [
+    '子时', '丑时', '寅时', '卯时', '辰时', '巳时',
+    '午时', '未时', '申时', '酉时', '戌时', '亥时'
+]
+
+# Wuxing generation and counter relationships
+WUXING_GENERATES = {'木': '火', '火': '土', '土': '金', '金': '水', '水': '木'}
+WUXING_COUNTERS = {'木': '土', '土': '水', '水': '火', '火': '金', '金': '木'}
+
+# Hetu last-digit to Wuxing mapping
+# 水: 1, 6; 火: 2, 7; 木: 3, 8; 金: 4, 9; 土: 5, 0
+DIGIT_TO_WUXING = {
+    1: '水', 6: '水',
+    2: '火', 7: '火',
+    3: '木', 8: '木',
+    4: '金', 9: '金',
+    5: '土', 0: '土',
+}
+
+
+def get_shichen_num(dt: datetime) -> int:
+    """Map datetime hour to 12 earthly branch number (1-12)."""
+    hour = dt.hour
+    if hour >= 23 or hour < 1:
+        return 1  # 子
+    return (hour + 1) // 2 + 1
+
+
+def get_shichen_name(dt: datetime) -> str:
+    """Return Chinese earthly branch name for datetime."""
+    idx = get_shichen_num(dt) - 1
+    return SHICHEN_NAMES[idx]
+
+
+def get_ball_wuxing(ball_number: int) -> str:
+    """Map SSQ ball number (1-33) to Hetu Wuxing element by its last digit."""
+    last_digit = int(ball_number) % 10
+    return DIGIT_TO_WUXING[last_digit]
+
+
+def parse_user_numbers(numbers: List[int], shichen_num: int) -> Tuple[int, int, int]:
+    """Parse user numbers into (upper_gua_num, lower_gua_num, moving_line).
+    
+    Rules:
+    - 2 numbers [n1, n2]:
+        upper = n1 % 8 or 8
+        lower = n2 % 8 or 8
+        moving = (n1 + n2 + shichen) % 6 or 6
+    - 1 number [n1]:
+        if n1 >= 10: split string in middle into n1, n2, then apply 2-number rule
+        else: upper = n1 % 8 or 8, lower = shichen % 8 or 8, moving = (n1 + shichen) % 6 or 6
+    - 3+ numbers:
+        upper = n1 % 8 or 8
+        lower = n2 % 8 or 8
+        moving = (sum(numbers) + shichen) % 6 or 6
+    """
+    if not numbers:
+        numbers = [shichen_num, shichen_num + 3]
+
+    if len(numbers) == 1:
+        n = numbers[0]
+        s_num = str(n)
+        if len(s_num) >= 2:
+            mid = len(s_num) // 2
+            n1 = int(s_num[:mid])
+            n2 = int(s_num[mid:])
+            upper = (n1 % 8) or 8
+            lower = (n2 % 8) or 8
+            moving = ((n1 + n2 + shichen_num) % 6) or 6
+        else:
+            upper = (n % 8) or 8
+            lower = (shichen_num % 8) or 8
+            moving = ((n + shichen_num) % 6) or 6
+    elif len(numbers) == 2:
+        n1, n2 = numbers[0], numbers[1]
+        upper = (n1 % 8) or 8
+        lower = (n2 % 8) or 8
+        moving = ((n1 + n2 + shichen_num) % 6) or 6
+    else:
+        n1, n2 = numbers[0], numbers[1]
+        upper = (n1 % 8) or 8
+        lower = (n2 % 8) or 8
+        moving = ((sum(numbers) + shichen_num) % 6) or 6
+
+    return upper, lower, moving
+
+
+def calculate_hexagrams(upper_num: int, lower_num: int, moving_line: int) -> Dict[str, Any]:
+    """Calculate Main (主卦), Mutual (互卦), Transformed (变卦) and Ti-Yong division."""
+    upper_bits = BAGUA_CONFIG[upper_num]['bits']
+    lower_bits = BAGUA_CONFIG[lower_num]['bits']
+
+    # 6 lines from bottom (idx 0) to top (idx 5)
+    main_lines = lower_bits + upper_bits
+
+    # Mutual hexagram (互卦):
+    # Lower mutual = lines 2, 3, 4 (idx 1, 2, 3)
+    # Upper mutual = lines 3, 4, 5 (idx 2, 3, 4)
+    lower_mutual_bits = main_lines[1:4]
+    upper_mutual_bits = main_lines[2:5]
+    lower_mutual_num = BITS_TO_BAGUA[lower_mutual_bits]
+    upper_mutual_num = BITS_TO_BAGUA[upper_mutual_bits]
+
+    # Transformed hexagram (变卦): invert moving line (1-indexed)
+    trans_lines = list(main_lines)
+    trans_lines[moving_line - 1] = 1 - trans_lines[moving_line - 1]
+    trans_lower_bits = tuple(trans_lines[0:3])
+    trans_upper_bits = tuple(trans_lines[3:6])
+    trans_lower_num = BITS_TO_BAGUA[trans_lower_bits]
+    trans_upper_num = BITS_TO_BAGUA[trans_upper_bits]
+
+    # Ti-Yong identification:
+    # moving in 1, 2, 3 -> upper is Ti, lower is Yong
+    # moving in 4, 5, 6 -> lower is Ti, upper is Yong
+    if moving_line in (1, 2, 3):
+        ti_position = '上卦'
+        ti_num = upper_num
+        yong_position = '下卦'
+        yong_num = lower_num
+        trans_yong_num = trans_lower_num
+    else:
+        ti_position = '下卦'
+        ti_num = lower_num
+        yong_position = '上卦'
+        yong_num = upper_num
+        trans_yong_num = trans_upper_num
+
+    ti_element = BAGUA_CONFIG[ti_num]['element']
+    yong_element = BAGUA_CONFIG[yong_num]['element']
+    trans_yong_element = BAGUA_CONFIG[trans_yong_num]['element']
+
+    return {
+        'moving_line': moving_line,
+        'main': {
+            'name': f"{BAGUA_CONFIG[upper_num]['name']}{BAGUA_CONFIG[lower_num]['name']}",
+            'upper': BAGUA_CONFIG[upper_num],
+            'lower': BAGUA_CONFIG[lower_num],
+            'upper_num': upper_num,
+            'lower_num': lower_num,
+            'lines': main_lines,
+        },
+        'mutual': {
+            'name': f"{BAGUA_CONFIG[upper_mutual_num]['name']}{BAGUA_CONFIG[lower_mutual_num]['name']}",
+            'upper': BAGUA_CONFIG[upper_mutual_num],
+            'lower': BAGUA_CONFIG[lower_mutual_num],
+            'upper_num': upper_mutual_num,
+            'lower_num': lower_mutual_num,
+        },
+        'transformed': {
+            'name': f"{BAGUA_CONFIG[trans_upper_num]['name']}{BAGUA_CONFIG[trans_lower_num]['name']}",
+            'upper': BAGUA_CONFIG[trans_upper_num],
+            'lower': BAGUA_CONFIG[trans_lower_num],
+            'upper_num': trans_upper_num,
+            'lower_num': trans_lower_num,
+            'lines': tuple(trans_lines),
+        },
+        'ti': {
+            'position': ti_position,
+            'num': ti_num,
+            'name': BAGUA_CONFIG[ti_num]['name'],
+            'element': ti_element,
+            'symbol': BAGUA_CONFIG[ti_num]['symbol'],
+        },
+        'yong': {
+            'position': yong_position,
+            'num': yong_num,
+            'name': BAGUA_CONFIG[yong_num]['name'],
+            'element': yong_element,
+            'symbol': BAGUA_CONFIG[yong_num]['symbol'],
+        },
+        'trans_yong': {
+            'num': trans_yong_num,
+            'name': BAGUA_CONFIG[trans_yong_num]['name'],
+            'element': trans_yong_element,
+        }
+    }
+
+
+def analyze_wuxing_relation(source: str, target: str) -> str:
+    """Analyze relation between source and target element.
+    Returns: 'same' (比和), 'generate' (生体), 'counter' (克体), 'leak' (体生用/泄气), 'control' (体克用/财星)
+    """
+    if source == target:
+        return 'same'
+    if WUXING_GENERATES[source] == target:
+        return 'generate'
+    if WUXING_COUNTERS[source] == target:
+        return 'counter'
+    if WUXING_GENERATES[target] == source:
+        return 'leak'
+    if WUXING_COUNTERS[target] == source:
+        return 'control'
+    return 'neutral'
+
+
+def evaluate_divination_fortune(hex_info: Dict[str, Any]) -> Dict[str, Any]:
+    """Evaluate overall divination rating, guidance, and Wuxing weights."""
+    ti_elem = hex_info['ti']['element']
+    yong_elem = hex_info['yong']['element']
+    trans_yong_elem = hex_info['trans_yong']['element']
+    mut_upper_elem = hex_info['mutual']['upper']['element']
+    mut_lower_elem = hex_info['mutual']['lower']['element']
+
+    # 1. Relations
+    main_rel = analyze_wuxing_relation(yong_elem, ti_elem)
+    trans_rel = analyze_wuxing_relation(trans_yong_elem, ti_elem)
+    mut_upper_rel = analyze_wuxing_relation(mut_upper_elem, ti_elem)
+    mut_lower_rel = analyze_wuxing_relation(mut_lower_elem, ti_elem)
+
+    # 2. Comprehensive Fortune assessment (Evaluating Main, Mutuals, and Transformed)
+    # 变卦为终局（权重最高）：若变用克体，大忌；若变用生体，吉兆
+    if trans_rel == 'counter':
+        rating = '偏克 · 慎出'
+        color = '#ef4444'
+        if main_rel == 'counter':
+            desc = '主用相克且变卦回头交克，互卦亦无生扶，当刻气机偏逆，大受制约，建议减注观望或换个时辰定夺。'
+        elif main_rel == 'leak':
+            desc = '初卦体生用耗散元气，变卦回头见克，互卦克泄交加，当刻气机偏逆，建议减注观望或换个时辰定夺。'
+        elif main_rel in ('generate', 'same'):
+            desc = '初卦虽见生扶比和，但变卦回头克体，先吉后凶，后劲受阻，建议谨慎观望。'
+        else:
+            desc = '终局见变用回头克体，破耗受制，气机受阻，建议保守观望。'
+    elif trans_rel == 'leak':
+        if main_rel in ('counter', 'leak'):
+            rating = '泄气 · 宜守'
+            desc = '体卦生用泄耗元气，全盘气机虚耗，难聚财星，不宜重注，宜守不宜急。'
+            color = '#8b5cf6'
+        elif main_rel in ('generate', 'same'):
+            rating = '平卦'
+            desc = '初有生扶而终见耗泄，吉凶平缓，互见消长，按需小额娱乐。'
+            color = '#6b7280'
+        else:
+            rating = '平卦'
+            desc = '体虽克用求财但终局耗损，得失相抵，平缓定夺。'
+            color = '#6b7280'
+    elif trans_rel in ('generate', 'same'):
+        if main_rel in ('generate', 'same'):
+            rating = '大吉'
+            desc = '主用相生比和，变卦回头生旺体卦，生扶得力，后劲充沛，可按计划果断出手。'
+            color = '#10b981'
+        elif main_rel in ('counter', 'leak'):
+            rating = '中吉 · 转吉'
+            desc = '初卦虽有克泄波折，但变卦生扶体卦，转危为安，后劲充足，可顺势小额跟进。'
+            color = '#3b82f6'
+        else:
+            rating = '大吉'
+            desc = '体克用求财得地，变卦更回头生旺体卦，财印两全，利于果断出击。'
+            color = '#10b981'
+    elif trans_rel == 'control':
+        if main_rel in ('generate', 'same', 'control'):
+            rating = '中吉 · 财星得地'
+            desc = '体克用为财星，求财可得，利于主动出击，顺势跟进。'
+            color = '#f59e0b'
+        elif main_rel == 'counter':
+            rating = '平卦'
+            desc = '初受克制而终局克用求财，劳心费力，吉凶互见，小额参与。'
+            color = '#6b7280'
+        else:
+            rating = '平卦'
+            desc = '初虽泄气但终能克用得财，耗力求进，平和对待。'
+            color = '#6b7280'
+    else:
+        rating = '平卦'
+        desc = '吉凶互见，体用平缓无冲克，平和定夺，按需小额娱乐。'
+        color = '#6b7280'
+
+    # 互卦全克泄降档保护
+    if rating == '平卦':
+        all_harm = all(r in ('counter', 'leak') for r in (main_rel, mut_upper_rel, mut_lower_rel, trans_rel))
+        if all_harm:
+            rating = '泄气 · 宜守'
+            desc = '主卦、互卦与变卦克泄交加，全无生扶，气机消退，宜守不宜急。'
+            color = '#8b5cf6'
+
+    # 3. Wuxing weight allocation
+    # Baseline for 5 elements based on Ti element
+    weights: Dict[str, float] = {}
+    for elem in ['金', '木', '水', '火', '土']:
+        rel = analyze_wuxing_relation(elem, ti_elem)
+        if rel == 'generate':
+            w = 1.0  # 印/生扶
+        elif rel == 'same':
+            w = 0.8  # 比和
+        elif rel == 'control':
+            w = 0.4  # 财星
+        elif rel == 'leak':
+            w = -0.5 # 泄气
+        elif rel == 'counter':
+            w = -1.0 # 忌神
+        else:
+            w = 0.0
+
+        # Fine-tune with transformed and mutual tendencies
+        if elem == trans_yong_elem and trans_rel in ('generate', 'same'):
+            w += 0.1
+        if elem in (mut_upper_elem, mut_lower_elem) and analyze_wuxing_relation(elem, ti_elem) in ('generate', 'same'):
+            w += 0.05
+        weights[elem] = round(w, 2)
+
+    favored_elements = [e for e, w in sorted(weights.items(), key=lambda x: x[1], reverse=True) if w > 0]
+    avoided_elements = [e for e, w in sorted(weights.items(), key=lambda x: x[1]) if w < 0]
+
+    return {
+        'rating': rating,
+        'description': desc,
+        'color': color,
+        'main_relation': main_rel,
+        'trans_relation': trans_rel,
+        'wuxing_weights': weights,
+        'favored_elements': favored_elements,
+        'avoided_elements': avoided_elements,
+    }
+
+
+def score_ticket_meihua(reds: List[int], blue: int, wuxing_weights: Dict[str, float]) -> float:
+    """Calculate raw Meihua Wuxing affinity score for a ticket.
+    
+    Formula:
+    mean(red_wuxing_weights) + 1.5 * blue_wuxing_weight
+    """
+    red_weights = [wuxing_weights.get(get_ball_wuxing(r), 0.0) for r in reds]
+    red_mean = sum(red_weights) / len(red_weights) if red_weights else 0.0
+    blue_w = wuxing_weights.get(get_ball_wuxing(blue), 0.0)
+    raw_score = red_mean + 1.5 * blue_w
+    return float(raw_score)
+
+
+def select_meihua_tickets(
+    candidate_pool: List[Dict[str, Any]],
+    purchase_dt: Optional[datetime] = None,
+    numbers: Optional[List[int]] = None,
+    mode: str = 'balanced',
+    gamma: float = 0.30,
+    target_count: int = 5,
+    max_ball_freq: int = 2,
+) -> Dict[str, Any]:
+    """Perform non-destructive Meihua final audit on Top-20 candidate pool.
+    
+    CRITICAL INVARIANT:
+    Tickets in candidate_pool are NEVER modified (no balls changed, swapped or replaced).
+    Only re-ranked and selected via constrained greedy pass.
+    
+    Returns:
+        {
+            'hexagram_info': dict,
+            'fortune': dict,
+            'selected_tickets': list of 5 tickets,
+            'fallback_relaxed': bool,
+            'mode': mode,
+            'gamma': gamma
+        }
+    """
+    if purchase_dt is None:
+        purchase_dt = datetime.now()
+    if not numbers:
+        numbers = [3, 8]
+
+    shichen_num = get_shichen_num(purchase_dt)
+    shichen_name = get_shichen_name(purchase_dt)
+    upper_num, lower_num, moving_line = parse_user_numbers(numbers, shichen_num)
+
+    hex_info = calculate_hexagrams(upper_num, lower_num, moving_line)
+    hex_info['shichen_name'] = shichen_name
+    hex_info['purchase_time'] = purchase_dt.strftime('%Y-%m-%d %H:%M')
+
+    fortune = evaluate_divination_fortune(hex_info)
+    wuxing_weights = fortune['wuxing_weights']
+
+    # Score each ticket in pool
+    scored_pool: List[Dict[str, Any]] = []
+    raw_meihua_scores = []
+    base_scores = []
+
+    for item in candidate_pool:
+        raw_m = score_ticket_meihua(item['reds'], item['blue'], wuxing_weights)
+        raw_meihua_scores.append(raw_m)
+        base_s = float(item.get('composite_score', item.get('final_score', item.get('model_score', 0.5))))
+        base_scores.append(base_s)
+
+    # Normalize within pool
+    min_m, max_m = min(raw_meihua_scores), max(raw_meihua_scores)
+    min_b, max_b = min(base_scores), max(base_scores)
+    denom_m = (max_m - min_m) + 1e-9
+    denom_b = (max_b - min_b) + 1e-9
+
+    for idx, item in enumerate(candidate_pool):
+        norm_meihua = (raw_meihua_scores[idx] - min_m) / denom_m
+        norm_base = (base_scores[idx] - min_b) / denom_b
+        final_score = (1.0 - gamma) * norm_base + gamma * norm_meihua
+
+        # Find matching favored balls for display
+        favored_set = set(fortune['favored_elements'])
+        matched_reds = [r for r in item['reds'] if get_ball_wuxing(r) in favored_set]
+        matched_blue = get_ball_wuxing(item['blue']) in favored_set
+
+        ticket_copy = dict(item)
+        ticket_copy['original_rank'] = item.get('rank', idx + 1)
+        ticket_copy['meihua_score'] = round(float(norm_meihua), 4)
+        ticket_copy['norm_composite'] = round(float(norm_base), 4)
+        ticket_copy['final_meihua_score'] = round(float(final_score), 4)
+        ticket_copy['matched_favored_reds'] = matched_reds
+        ticket_copy['matched_favored_blue'] = matched_blue
+        ticket_copy['red_wuxing'] = [get_ball_wuxing(r) for r in item['reds']]
+        ticket_copy['blue_wuxing'] = get_ball_wuxing(item['blue'])
+        scored_pool.append(ticket_copy)
+
+    # Re-rank strictly by final_meihua_score descending
+    scored_pool.sort(key=lambda x: x['final_meihua_score'], reverse=True)
+
+    # Constrained optimal selection using pruned DFS across 20 tickets
+    # Solves in < 1 millisecond and guarantees the globally optimal 5-ticket set
+    # satisfying distinct blue balls and max_ball_freq <= 2.
+    selected: List[Dict[str, Any]] = []
+    fallback_relaxed = False
+
+    for allowed_freq in [max_ball_freq, max_ball_freq + 1, target_count]:
+        best_combo: Optional[List[Dict[str, Any]]] = None
+        best_sum: float = -1e9
+
+        def dfs(idx: int, current: List[Dict[str, Any]], used_blues: set, ball_counts: Dict[int, int], curr_sum: float):
+            nonlocal best_combo, best_sum
+            if len(current) == target_count:
+                if curr_sum > best_sum:
+                    best_sum = curr_sum
+                    best_combo = list(current)
+                return
+            if idx >= len(scored_pool):
+                return
+            # Pruning branch
+            rem = target_count - len(current)
+            if curr_sum + rem * scored_pool[idx]['final_meihua_score'] <= best_sum:
+                return
+
+            t = scored_pool[idx]
+            # Check blue ball uniqueness in balanced mode
+            can_add = True
+            if mode == 'balanced' and t['blue'] in used_blues:
+                can_add = False
+            if can_add and any(ball_counts.get(r, 0) >= allowed_freq for r in t['reds']):
+                can_add = False
+
+            if can_add:
+                if mode == 'balanced':
+                    used_blues.add(t['blue'])
+                for r in t['reds']:
+                    ball_counts[r] = ball_counts.get(r, 0) + 1
+                current.append(t)
+
+                dfs(idx + 1, current, used_blues, ball_counts, curr_sum + t['final_meihua_score'])
+
+                current.pop()
+                for r in t['reds']:
+                    ball_counts[r] -= 1
+                if mode == 'balanced':
+                    used_blues.remove(t['blue'])
+
+            # Branch without current ticket
+            dfs(idx + 1, current, used_blues, ball_counts, curr_sum)
+
+        dfs(0, [], set(), {}, 0.0)
+
+        if best_combo and len(best_combo) == target_count:
+            selected = best_combo
+            if allowed_freq > max_ball_freq:
+                fallback_relaxed = True
+            break
+
+    # Final fallback if pool is extremely small
+    if len(selected) < target_count:
+        for t in scored_pool:
+            if t not in selected:
+                selected.append(t)
+                if len(selected) == target_count:
+                    break
+
+    return {
+        'purchase_time': purchase_dt.strftime('%Y-%m-%d %H:%M'),
+        'shichen': f"{shichen_name} ({shichen_num})",
+        'numbers': numbers,
+        'hexagram_info': hex_info,
+        'fortune': fortune,
+        'mode': mode,
+        'gamma': gamma,
+        'selected_tickets': selected,
+        'ranked_pool': scored_pool,
+        'fallback_relaxed': fallback_relaxed,
+    }
