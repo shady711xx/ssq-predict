@@ -77,6 +77,7 @@ def init_db():
 
     # If draws table is empty and CSV exists, automatically seed database
     load_from_csv_if_empty()
+    load_predictions_from_csv_if_empty()
 
 
 def load_from_csv_if_empty(csv_path: Optional[str] = None) -> int:
@@ -98,6 +99,38 @@ def load_from_csv_if_empty(csv_path: Optional[str] = None) -> int:
         return count
     except Exception as e:
         logger.warning(f"Failed to auto-load from CSV: {e}")
+        return 0
+
+
+def load_predictions_from_csv_if_empty(csv_path: Optional[str] = None) -> int:
+    """If predictions table is empty but reports/predictions.csv exists, load into DB."""
+    if csv_path is None:
+        csv_path = os.path.join(config.REPORTS_DIR, 'predictions.csv')
+    if not os.path.exists(csv_path):
+        return 0
+    try:
+        conn = get_connection()
+        try:
+            cursor = conn.execute('SELECT COUNT(*) FROM predictions')
+            if cursor.fetchone()[0] > 0:
+                return 0
+            df = pd.read_csv(csv_path, dtype={'target_issue': str})
+            if df.empty:
+                return 0
+            df = df.where(pd.notnull(df), None)
+            cols = [c for c in df.columns if c != 'id']
+            placeholders = ', '.join(['?'] * len(cols))
+            col_names = ', '.join(cols)
+            sql = f"INSERT INTO predictions ({col_names}) VALUES ({placeholders})"
+            cursor.executemany(sql, df[cols].values.tolist())
+            conn.commit()
+            count = len(df)
+            logger.info(f"Initialized predictions table with {count} records loaded from {csv_path}")
+            return count
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.warning(f"Failed to auto-load predictions from CSV: {e}")
         return 0
 
 
