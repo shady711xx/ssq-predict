@@ -1,6 +1,6 @@
 {
   "meta": {
-    "generated_at": "2026-11-23 10:55:24",
+    "generated_at": "2026-11-23 11:44:02",
     "target_issue": "26135",
     "target_draw_date": "2026-11-24 (周二)",
     "latest_draw": {
@@ -156,49 +156,49 @@
       {
         "rank": 1,
         "reds": [
-          1,
+          5,
+          9,
           10,
-          13,
           14,
           22,
           32
         ],
-        "blue": 11,
-        "model_score": 0.5718,
-        "uniqueness_score": 0.7175,
-        "composite_score": 0.8902,
+        "blue": 12,
+        "model_score": 0.562,
+        "uniqueness_score": 0.7925,
+        "composite_score": 0.9436,
         "sum_val": 92,
         "odd_even": "2:4",
         "ac_val": 8,
         "consecutive": 1,
         "tags": [
-          "历史高重合(5红)",
           "含>31冷号",
           "破除生日偏置",
-          "避开生日扎堆",
-          "含1组镜像号"
+          "反吉利偏置",
+          "含反偏好冷号4",
+          "无历史重号"
         ]
       },
       {
         "rank": 2,
         "reds": [
-          4,
-          8,
+          13,
+          14,
           17,
-          21,
+          20,
           22,
           32
         ],
-        "blue": 9,
-        "model_score": 0.5558,
-        "uniqueness_score": 0.7535,
-        "composite_score": 0.8378,
-        "sum_val": 104,
+        "blue": 16,
+        "model_score": 0.5568,
+        "uniqueness_score": 0.7385,
+        "composite_score": 0.8855,
+        "sum_val": 118,
         "odd_even": "2:4",
-        "ac_val": 8,
+        "ac_val": 9,
         "consecutive": 1,
         "tags": [
-          "与上期重合4号",
+          "历史高重合(5红)",
           "含>31冷号",
           "破除生日偏置",
           "避开生日扎堆",
@@ -208,128 +208,125 @@
       {
         "rank": 3,
         "reds": [
-          1,
-          5,
-          14,
-          18,
+          13,
           19,
+          20,
+          26,
+          30,
           32
         ],
-        "blue": 12,
-        "model_score": 0.544,
-        "uniqueness_score": 0.815,
-        "composite_score": 0.8226,
-        "sum_val": 89,
-        "odd_even": "3:3",
-        "ac_val": 5,
+        "blue": 11,
+        "model_score": 0.5422,
+        "uniqueness_score": 0.7725,
+        "composite_score": 0.844,
+        "sum_val": 140,
+        "odd_even": "2:4",
+        "ac_val": 6,
         "consecutive": 1,
         "tags": [
           "含>31冷号",
           "破除生日偏置",
           "避开生日扎堆",
-          "含反偏好冷号4",
           "无历史重号"
         ]
       },
       {
         "rank": 4,
         "reds": [
-          5,
+          1,
           9,
           14,
           17,
-          20,
+          18,
           32
         ],
-        "blue": 16,
-        "model_score": 0.5394,
-        "uniqueness_score": 0.836,
-        "composite_score": 0.8147,
-        "sum_val": 97,
+        "blue": 9,
+        "model_score": 0.5385,
+        "uniqueness_score": 0.731,
+        "composite_score": 0.8007,
+        "sum_val": 91,
         "odd_even": "3:3",
-        "ac_val": 7,
-        "consecutive": 0,
+        "ac_val": 9,
+        "consecutive": 1,
         "tags": [
+          "历史高重合(5红)",
           "含>31冷号",
           "破除生日偏置",
           "避开生日扎堆",
-          "反吉利偏置",
           "含反偏好冷号4"
         ]
       },
       {
         "rank": 5,
         "reds": [
-          3,
-          13,
-          14,
-          20,
+          4,
+          19,
+          22,
+          27,
           30,
           32
         ],
         "blue": 14,
-        "model_score": 0.5413,
-        "uniqueness_score": 0.8015,
-        "composite_score": 0.8006,
-        "sum_val": 112,
+        "model_score": 0.5309,
+        "uniqueness_score": 0.7565,
+        "composite_score": 0.7842,
+        "sum_val": 134,
         "odd_even": "2:4",
-        "ac_val": 8,
-        "consecutive": 1,
+        "ac_val": 7,
+        "consecutive": 0,
         "tags": [
+          "历史高重合(5红)",
           "含>31冷号",
           "破除生日偏置",
           "避开生日扎堆",
-          "含1组镜像号",
           "反吉利偏置"
         ]
       },
       {
         "rank": 6,
         "reds": [
-          5,
-          8,
+          2,
           14,
-          20,
           21,
-          25
+          22,
+          24,
+          29
         ],
         "blue": 5,
-        "model_score": 0.5421,
-        "uniqueness_score": 0.62,
-        "composite_score": 0.6825,
-        "sum_val": 93,
-        "odd_even": "3:3",
-        "ac_val": 9,
+        "model_score": 0.5366,
+        "uniqueness_score": 0.6725,
+        "composite_score": 0.754,
+        "sum_val": 112,
+        "odd_even": "2:4",
+        "ac_val": 8,
         "consecutive": 1,
         "tags": [
-          "历史高重合(5红)",
           "避开生日扎堆",
           "反吉利偏置",
           "含反偏好冷号4",
-          "奇偶均衡3:3"
+          "无历史重号"
         ]
       },
       {
         "rank": 7,
         "reds": [
+          1,
           4,
-          21,
+          13,
+          18,
           22,
-          24,
-          30,
-          33
+          30
         ],
-        "blue": 4,
-        "model_score": 0.5121,
-        "uniqueness_score": 0.8315,
-        "composite_score": 0.681,
-        "sum_val": 134,
+        "blue": 15,
+        "model_score": 0.541,
+        "uniqueness_score": 0.6065,
+        "composite_score": 0.73,
+        "sum_val": 88,
         "odd_even": "2:4",
-        "ac_val": 8,
-        "consecutive": 1,
+        "ac_val": 7,
+        "consecutive": 0,
         "tags": [
-          "含>31冷号",
-          "破除生日偏置",
+          "历史高重合(5红)",
           "避开生日扎堆",
           "反吉利偏置",
           "含反偏好冷号4"
@@ -341,116 +338,42 @@
           4,
           7,
           13,
-          20,
-          22,
-          33
+          14,
+          18,
+          24
         ],
-        "blue": 3,
-        "model_score": 0.5169,
-        "uniqueness_score": 0.77,
-        "composite_score": 0.6627,
-        "sum_val": 99,
-        "odd_even": "3:3",
-        "ac_val": 8,
-        "consecutive": 0,
+        "blue": 4,
+        "model_score": 0.5396,
+        "uniqueness_score": 0.6065,
+        "composite_score": 0.7239,
+        "sum_val": 80,
+        "odd_even": "2:4",
+        "ac_val": 7,
+        "consecutive": 1,
         "tags": [
           "历史高重合(5红)",
-          "含>31冷号",
-          "破除生日偏置",
           "避开生日扎堆",
-          "反吉利偏置"
+          "反吉利偏置",
+          "含反偏好冷号4"
         ]
       },
       {
         "rank": 9,
         "reds": [
-          2,
-          5,
-          6,
-          17,
-          21,
-          22
-        ],
-        "blue": 8,
-        "model_score": 0.5333,
-        "uniqueness_score": 0.636,
-        "composite_score": 0.6511,
-        "sum_val": 73,
-        "odd_even": "3:3",
-        "ac_val": 6,
-        "consecutive": 2,
-        "tags": [
-          "反吉利偏置",
-          "无历史重号",
-          "奇偶均衡3:3"
-        ]
-      },
-      {
-        "rank": 10,
-        "reds": [
-          2,
-          6,
-          7,
-          13,
-          18,
-          25
-        ],
-        "blue": 12,
-        "model_score": 0.5258,
-        "uniqueness_score": 0.63,
-        "composite_score": 0.6112,
-        "sum_val": 71,
-        "odd_even": "3:3",
-        "ac_val": 6,
-        "consecutive": 1,
-        "tags": [
-          "无历史重号",
-          "与上期完全隔离",
-          "奇偶均衡3:3"
-        ]
-      },
-      {
-        "rank": 11,
-        "reds": [
-          10,
-          17,
-          18,
-          21,
-          29,
-          33
-        ],
-        "blue": 6,
-        "model_score": 0.5063,
-        "uniqueness_score": 0.7635,
-        "composite_score": 0.6076,
-        "sum_val": 128,
-        "odd_even": "4:2",
-        "ac_val": 6,
-        "consecutive": 1,
-        "tags": [
-          "含>31冷号",
-          "破除生日偏置",
-          "避开生日扎堆",
-          "无历史重号"
-        ]
-      },
-      {
-        "rank": 12,
-        "reds": [
+          1,
           4,
-          10,
           18,
-          27,
-          29,
-          30
+          20,
+          21,
+          26
         ],
-        "blue": 1,
-        "model_score": 0.5327,
+        "blue": 3,
+        "model_score": 0.5397,
         "uniqueness_score": 0.5675,
-        "composite_score": 0.6022,
-        "sum_val": 118,
+        "composite_score": 0.6987,
+        "sum_val": 90,
         "odd_even": "2:4",
-        "ac_val": 10,
+        "ac_val": 8,
         "consecutive": 1,
         "tags": [
           "历史高重合(5红)",
@@ -459,201 +382,275 @@
         ]
       },
       {
-        "rank": 13,
+        "rank": 10,
         "reds": [
-          4,
+          3,
           10,
-          11,
+          13,
           20,
-          24,
+          26,
           29
         ],
-        "blue": 7,
-        "model_score": 0.514,
-        "uniqueness_score": 0.6335,
-        "composite_score": 0.5571,
-        "sum_val": 98,
+        "blue": 8,
+        "model_score": 0.5293,
+        "uniqueness_score": 0.636,
+        "composite_score": 0.6982,
+        "sum_val": 101,
+        "odd_even": "3:3",
+        "ac_val": 6,
+        "consecutive": 0,
+        "tags": [
+          "避开生日扎堆",
+          "无历史重号",
+          "奇偶均衡3:3"
+        ]
+      },
+      {
+        "rank": 11,
+        "reds": [
+          2,
+          4,
+          5,
+          20,
+          25,
+          30
+        ],
+        "blue": 1,
+        "model_score": 0.5278,
+        "uniqueness_score": 0.6125,
+        "composite_score": 0.6763,
+        "sum_val": 86,
         "odd_even": "2:4",
         "ac_val": 9,
         "consecutive": 1,
         "tags": [
+          "含1组镜像号",
           "反吉利偏置",
           "含反偏好冷号4",
           "无历史重号"
         ]
       },
       {
-        "rank": 14,
+        "rank": 12,
         "reds": [
-          2,
-          8,
-          11,
+          10,
           18,
-          24,
-          26
+          21,
+          23,
+          29,
+          30
         ],
-        "blue": 1,
-        "model_score": 0.5074,
-        "uniqueness_score": 0.575,
-        "composite_score": 0.4862,
-        "sum_val": 89,
-        "odd_even": "1:5",
+        "blue": 10,
+        "model_score": 0.5087,
+        "uniqueness_score": 0.645,
+        "composite_score": 0.6141,
+        "sum_val": 131,
+        "odd_even": "3:3",
+        "ac_val": 8,
+        "consecutive": 1,
+        "tags": [
+          "避开生日扎堆",
+          "无历史重号",
+          "奇偶均衡3:3"
+        ]
+      },
+      {
+        "rank": 13,
+        "reds": [
+          10,
+          12,
+          17,
+          21,
+          26,
+          29
+        ],
+        "blue": 13,
+        "model_score": 0.5064,
+        "uniqueness_score": 0.624,
+        "composite_score": 0.5903,
+        "sum_val": 115,
+        "odd_even": "3:3",
         "ac_val": 8,
         "consecutive": 0,
         "tags": [
-          "含反偏好冷号4",
+          "避开生日扎堆",
+          "含1组镜像号",
           "无历史重号",
-          "与上期完全隔离",
-          "奇偶偏斜1:5"
+          "奇偶均衡3:3"
+        ]
+      },
+      {
+        "rank": 14,
+        "reds": [
+          3,
+          8,
+          21,
+          24,
+          25,
+          33
+        ],
+        "blue": 2,
+        "model_score": 0.4693,
+        "uniqueness_score": 0.8225,
+        "composite_score": 0.5584,
+        "sum_val": 114,
+        "odd_even": "4:2",
+        "ac_val": 10,
+        "consecutive": 1,
+        "tags": [
+          "含>31冷号",
+          "破除生日偏置",
+          "避开生日扎堆",
+          "反吉利偏置",
+          "含反偏好冷号4"
         ]
       },
       {
         "rank": 15,
         "reds": [
+          2,
           3,
           6,
-          17,
-          25,
-          26,
-          29
-        ],
-        "blue": 15,
-        "model_score": 0.4991,
-        "uniqueness_score": 0.6315,
-        "composite_score": 0.4844,
-        "sum_val": 106,
-        "odd_even": "4:2",
-        "ac_val": 8,
-        "consecutive": 1,
-        "tags": [
-          "避开生日扎堆",
-          "无历史重号"
-        ]
-      },
-      {
-        "rank": 16,
-        "reds": [
-          5,
-          6,
-          12,
-          25,
-          30,
+          19,
+          24,
           33
         ],
-        "blue": 2,
-        "model_score": 0.4735,
-        "uniqueness_score": 0.795,
-        "composite_score": 0.4717,
-        "sum_val": 111,
+        "blue": 4,
+        "model_score": 0.4674,
+        "uniqueness_score": 0.809,
+        "composite_score": 0.5412,
+        "sum_val": 87,
         "odd_even": "3:3",
         "ac_val": 10,
         "consecutive": 1,
         "tags": [
           "含>31冷号",
           "破除生日偏置",
-          "反吉利偏置",
+          "含反偏好冷号4",
           "无历史重号",
-          "奇偶均衡3:3"
+          "与上期完全隔离"
+        ]
+      },
+      {
+        "rank": 16,
+        "reds": [
+          8,
+          9,
+          15,
+          24,
+          27,
+          33
+        ],
+        "blue": 12,
+        "model_score": 0.4639,
+        "uniqueness_score": 0.8075,
+        "composite_score": 0.5249,
+        "sum_val": 116,
+        "odd_even": "4:2",
+        "ac_val": 7,
+        "consecutive": 1,
+        "tags": [
+          "含>31冷号",
+          "破除生日偏置",
+          "避开生日扎堆",
+          "含反偏好冷号4",
+          "无历史重号"
         ]
       },
       {
         "rank": 17,
         "reds": [
-          1,
-          7,
-          15,
-          26,
-          28,
-          30
+          2,
+          5,
+          8,
+          16,
+          17,
+          29
         ],
-        "blue": 5,
-        "model_score": 0.4818,
-        "uniqueness_score": 0.66,
-        "composite_score": 0.4208,
-        "sum_val": 107,
+        "blue": 7,
+        "model_score": 0.4919,
+        "uniqueness_score": 0.606,
+        "composite_score": 0.5152,
+        "sum_val": 77,
         "odd_even": "3:3",
-        "ac_val": 9,
-        "consecutive": 0,
+        "ac_val": 8,
+        "consecutive": 1,
         "tags": [
-          "避开生日扎堆",
           "无历史重号",
-          "与上期完全隔离",
           "奇偶均衡3:3"
         ]
       },
       {
         "rank": 18,
         "reds": [
+          1,
           8,
-          9,
           12,
-          13,
+          17,
           28,
-          31
+          33
         ],
-        "blue": 8,
-        "model_score": 0.4906,
-        "uniqueness_score": 0.591,
-        "composite_score": 0.4165,
-        "sum_val": 101,
+        "blue": 16,
+        "model_score": 0.4776,
+        "uniqueness_score": 0.681,
+        "composite_score": 0.5019,
+        "sum_val": 99,
         "odd_even": "3:3",
         "ac_val": 6,
-        "consecutive": 2,
+        "consecutive": 0,
         "tags": [
-          "含1组镜像号",
-          "无历史重号",
-          "与上期完全隔离",
+          "历史高重合(5红)",
+          "含>31冷号",
+          "破除生日偏置",
           "奇偶均衡3:3"
         ]
       },
       {
         "rank": 19,
         "reds": [
-          6,
+          2,
+          8,
           10,
-          24,
-          25,
-          27,
-          33
+          11,
+          26,
+          27
         ],
-        "blue": 13,
-        "model_score": 0.4628,
-        "uniqueness_score": 0.779,
-        "composite_score": 0.4098,
-        "sum_val": 125,
-        "odd_even": "3:3",
-        "ac_val": 10,
-        "consecutive": 1,
+        "blue": 6,
+        "model_score": 0.4935,
+        "uniqueness_score": 0.5085,
+        "composite_score": 0.4583,
+        "sum_val": 84,
+        "odd_even": "2:4",
+        "ac_val": 8,
+        "consecutive": 2,
         "tags": [
-          "历史高重合(5红)",
-          "含>31冷号",
-          "破除生日偏置",
-          "避开生日扎堆",
-          "反吉利偏置"
+          "月份区密集",
+          "无历史重号"
         ]
       },
       {
         "rank": 20,
         "reds": [
-          1,
-          7,
-          8,
-          19,
-          24,
-          29
+          11,
+          12,
+          16,
+          25,
+          28,
+          31
         ],
-        "blue": 10,
-        "model_score": 0.4852,
-        "uniqueness_score": 0.5525,
-        "composite_score": 0.3648,
-        "sum_val": 88,
-        "odd_even": "4:2",
+        "blue": 8,
+        "model_score": 0.4594,
+        "uniqueness_score": 0.651,
+        "composite_score": 0.4027,
+        "sum_val": 123,
+        "odd_even": "3:3",
         "ac_val": 9,
         "consecutive": 1,
         "tags": [
-          "历史高重合(5红)",
-          "含反偏好冷号4",
-          "与上期完全隔离"
+          "避开生日扎堆",
+          "无历史重号",
+          "与上期完全隔离",
+          "奇偶均衡3:3"
         ]
       }
     ],
@@ -666,47 +663,123 @@
           {
             "rank": 1,
             "reds": [
-              1,
-              10,
-              13,
+              2,
+              6,
               14,
-              22,
+              18,
+              21,
               32
             ],
             "blue": 11,
-            "model_score": 0.5718,
-            "uniqueness_score": 0.7175,
-            "composite_score": 0.8861,
-            "sum_val": 92,
-            "odd_even": "2:4",
+            "model_score": 0.5623,
+            "uniqueness_score": 0.74,
+            "composite_score": 0.902,
+            "sum_val": 93,
+            "odd_even": "1:5",
             "ac_val": 8,
-            "consecutive": 1,
+            "consecutive": 0,
             "tags": [
-              "历史高重合(5红)",
               "含>31冷号",
               "破除生日偏置",
               "避开生日扎堆",
-              "含1组镜像号"
+              "含反偏好冷号4",
+              "无历史重号"
             ]
           },
           {
             "rank": 2,
             "reds": [
-              5,
-              14,
-              15,
-              24,
+              13,
+              19,
+              20,
+              26,
               30,
               32
             ],
             "blue": 11,
-            "model_score": 0.5309,
-            "uniqueness_score": 0.8225,
-            "composite_score": 0.7597,
-            "sum_val": 120,
+            "model_score": 0.5422,
+            "uniqueness_score": 0.7725,
+            "composite_score": 0.8344,
+            "sum_val": 140,
             "odd_even": "2:4",
-            "ac_val": 8,
+            "ac_val": 6,
             "consecutive": 1,
+            "tags": [
+              "含>31冷号",
+              "破除生日偏置",
+              "避开生日扎堆",
+              "无历史重号"
+            ]
+          },
+          {
+            "rank": 3,
+            "reds": [
+              11,
+              18,
+              20,
+              27,
+              29,
+              32
+            ],
+            "blue": 11,
+            "model_score": 0.536,
+            "uniqueness_score": 0.795,
+            "composite_score": 0.8213,
+            "sum_val": 137,
+            "odd_even": "3:3",
+            "ac_val": 6,
+            "consecutive": 0,
+            "tags": [
+              "含>31冷号",
+              "破除生日偏置",
+              "避开生日扎堆",
+              "无历史重号",
+              "奇偶均衡3:3"
+            ]
+          },
+          {
+            "rank": 4,
+            "reds": [
+              4,
+              14,
+              22,
+              26,
+              28,
+              29
+            ],
+            "blue": 11,
+            "model_score": 0.5553,
+            "uniqueness_score": 0.59,
+            "composite_score": 0.7781,
+            "sum_val": 123,
+            "odd_even": "1:5",
+            "ac_val": 10,
+            "consecutive": 1,
+            "tags": [
+              "避开生日扎堆",
+              "含反偏好冷号4",
+              "无历史重号",
+              "奇偶偏斜1:5"
+            ]
+          },
+          {
+            "rank": 5,
+            "reds": [
+              9,
+              17,
+              20,
+              22,
+              24,
+              33
+            ],
+            "blue": 11,
+            "model_score": 0.5184,
+            "uniqueness_score": 0.845,
+            "composite_score": 0.7756,
+            "sum_val": 125,
+            "odd_even": "3:3",
+            "ac_val": 7,
+            "consecutive": 0,
             "tags": [
               "含>31冷号",
               "破除生日偏置",
@@ -716,124 +789,50 @@
             ]
           },
           {
-            "rank": 3,
+            "rank": 6,
             "reds": [
-              2,
-              17,
-              18,
-              20,
-              22,
-              29
-            ],
-            "blue": 11,
-            "model_score": 0.5626,
-            "uniqueness_score": 0.5925,
-            "composite_score": 0.7595,
-            "sum_val": 108,
-            "odd_even": "2:4",
-            "ac_val": 9,
-            "consecutive": 1,
-            "tags": [
-              "避开生日扎堆",
-              "含1组镜像号",
-              "无历史重号"
-            ]
-          },
-          {
-            "rank": 4,
-            "reds": [
-              1,
-              17,
-              20,
-              26,
-              28,
-              32
-            ],
-            "blue": 11,
-            "model_score": 0.5364,
-            "uniqueness_score": 0.7725,
-            "composite_score": 0.753,
-            "sum_val": 124,
-            "odd_even": "2:4",
-            "ac_val": 9,
-            "consecutive": 0,
-            "tags": [
-              "含>31冷号",
-              "破除生日偏置",
-              "避开生日扎堆",
-              "无历史重号"
-            ]
-          },
-          {
-            "rank": 5,
-            "reds": [
-              3,
+              5,
               7,
               8,
-              14,
+              13,
               21,
               22
             ],
             "blue": 11,
-            "model_score": 0.5496,
-            "uniqueness_score": 0.665,
-            "composite_score": 0.7452,
-            "sum_val": 75,
-            "odd_even": "3:3",
+            "model_score": 0.5487,
+            "uniqueness_score": 0.6225,
+            "composite_score": 0.7695,
+            "sum_val": 76,
+            "odd_even": "4:2",
             "ac_val": 7,
             "consecutive": 2,
             "tags": [
               "反吉利偏置",
-              "含反偏好冷号4",
-              "无历史重号",
-              "奇偶均衡3:3"
-            ]
-          },
-          {
-            "rank": 6,
-            "reds": [
-              4,
-              6,
-              10,
-              13,
-              17,
-              24
-            ],
-            "blue": 11,
-            "model_score": 0.5494,
-            "uniqueness_score": 0.6425,
-            "composite_score": 0.7293,
-            "sum_val": 74,
-            "odd_even": "2:4",
-            "ac_val": 6,
-            "consecutive": 0,
-            "tags": [
-              "反吉利偏置",
-              "含反偏好冷号4",
               "无历史重号"
             ]
           },
           {
             "rank": 7,
             "reds": [
-              4,
-              7,
+              6,
               10,
-              15,
-              29,
-              30
+              13,
+              18,
+              27,
+              33
             ],
             "blue": 11,
-            "model_score": 0.5341,
-            "uniqueness_score": 0.665,
-            "composite_score": 0.671,
-            "sum_val": 95,
+            "model_score": 0.5142,
+            "uniqueness_score": 0.795,
+            "composite_score": 0.7261,
+            "sum_val": 107,
             "odd_even": "3:3",
-            "ac_val": 9,
-            "consecutive": 1,
+            "ac_val": 10,
+            "consecutive": 0,
             "tags": [
-              "反吉利偏置",
-              "含反偏好冷号4",
+              "含>31冷号",
+              "破除生日偏置",
+              "避开生日扎堆",
               "无历史重号",
               "奇偶均衡3:3"
             ]
@@ -841,24 +840,25 @@
           {
             "rank": 8,
             "reds": [
-              5,
-              20,
-              21,
+              1,
+              7,
+              9,
+              14,
               25,
-              28,
-              29
+              26
             ],
             "blue": 11,
-            "model_score": 0.5316,
-            "uniqueness_score": 0.6225,
-            "composite_score": 0.6309,
-            "sum_val": 128,
+            "model_score": 0.526,
+            "uniqueness_score": 0.6275,
+            "composite_score": 0.6734,
+            "sum_val": 82,
             "odd_even": "4:2",
-            "ac_val": 7,
-            "consecutive": 2,
+            "ac_val": 10,
+            "consecutive": 1,
             "tags": [
-              "避开生日扎堆",
-              "无历史重号"
+              "含反偏好冷号4",
+              "无历史重号",
+              "与上期完全隔离"
             ]
           }
         ]
@@ -871,25 +871,25 @@
           {
             "rank": 1,
             "reds": [
-              1,
               5,
+              9,
+              10,
               14,
-              18,
-              19,
+              22,
               32
             ],
             "blue": 12,
-            "model_score": 0.544,
-            "uniqueness_score": 0.815,
-            "composite_score": 0.8174,
-            "sum_val": 89,
-            "odd_even": "3:3",
-            "ac_val": 5,
+            "model_score": 0.562,
+            "uniqueness_score": 0.7925,
+            "composite_score": 0.9334,
+            "sum_val": 92,
+            "odd_even": "2:4",
+            "ac_val": 8,
             "consecutive": 1,
             "tags": [
               "含>31冷号",
               "破除生日偏置",
-              "避开生日扎堆",
+              "反吉利偏置",
               "含反偏好冷号4",
               "无历史重号"
             ]
@@ -897,51 +897,51 @@
           {
             "rank": 2,
             "reds": [
-              2,
-              8,
-              17,
+              3,
+              4,
               21,
               29,
+              30,
               32
             ],
             "blue": 12,
-            "model_score": 0.5428,
-            "uniqueness_score": 0.795,
-            "composite_score": 0.7985,
-            "sum_val": 109,
+            "model_score": 0.5388,
+            "uniqueness_score": 0.815,
+            "composite_score": 0.846,
+            "sum_val": 119,
             "odd_even": "3:3",
-            "ac_val": 9,
-            "consecutive": 0,
+            "ac_val": 8,
+            "consecutive": 2,
             "tags": [
               "含>31冷号",
               "破除生日偏置",
               "避开生日扎堆",
-              "无历史重号",
-              "奇偶均衡3:3"
+              "含1组镜像号",
+              "反吉利偏置"
             ]
           },
           {
             "rank": 3,
             "reds": [
-              5,
-              7,
-              10,
+              1,
+              8,
+              19,
               20,
-              28,
+              26,
               32
             ],
             "blue": 12,
-            "model_score": 0.54,
+            "model_score": 0.5368,
             "uniqueness_score": 0.7725,
-            "composite_score": 0.7702,
-            "sum_val": 102,
+            "composite_score": 0.8108,
+            "sum_val": 106,
             "odd_even": "2:4",
-            "ac_val": 10,
-            "consecutive": 0,
+            "ac_val": 6,
+            "consecutive": 1,
             "tags": [
               "含>31冷号",
               "破除生日偏置",
-              "反吉利偏置",
+              "避开生日扎堆",
               "无历史重号"
             ]
           },
@@ -949,41 +949,17 @@
             "rank": 4,
             "reds": [
               4,
-              6,
-              13,
-              14,
-              24,
-              29
+              7,
+              17,
+              18,
+              22,
+              27
             ],
             "blue": 12,
-            "model_score": 0.5448,
-            "uniqueness_score": 0.6425,
-            "composite_score": 0.7073,
-            "sum_val": 90,
-            "odd_even": "2:4",
-            "ac_val": 9,
-            "consecutive": 1,
-            "tags": [
-              "避开生日扎堆",
-              "含反偏好冷号4",
-              "无历史重号"
-            ]
-          },
-          {
-            "rank": 5,
-            "reds": [
-              3,
-              10,
-              14,
-              20,
-              21,
-              23
-            ],
-            "blue": 12,
-            "model_score": 0.5352,
+            "model_score": 0.5396,
             "uniqueness_score": 0.695,
-            "composite_score": 0.696,
-            "sum_val": 91,
+            "composite_score": 0.7748,
+            "sum_val": 95,
             "odd_even": "3:3",
             "ac_val": 8,
             "consecutive": 1,
@@ -996,74 +972,101 @@
             ]
           },
           {
-            "rank": 6,
+            "rank": 5,
             "reds": [
-              1,
-              4,
-              8,
+              12,
+              14,
+              16,
+              17,
               20,
-              24,
               33
             ],
             "blue": 12,
-            "model_score": 0.5173,
-            "uniqueness_score": 0.7925,
-            "composite_score": 0.6748,
-            "sum_val": 90,
+            "model_score": 0.5015,
+            "uniqueness_score": 0.8225,
+            "composite_score": 0.6877,
+            "sum_val": 112,
             "odd_even": "2:4",
-            "ac_val": 8,
-            "consecutive": 0,
+            "ac_val": 7,
+            "consecutive": 1,
             "tags": [
               "含>31冷号",
               "破除生日偏置",
+              "避开生日扎堆",
               "反吉利偏置",
+              "含反偏好冷号4"
+            ]
+          },
+          {
+            "rank": 6,
+            "reds": [
+              8,
+              11,
+              18,
+              21,
+              24,
+              25
+            ],
+            "blue": 12,
+            "model_score": 0.5216,
+            "uniqueness_score": 0.665,
+            "composite_score": 0.6775,
+            "sum_val": 107,
+            "odd_even": "3:3",
+            "ac_val": 5,
+            "consecutive": 1,
+            "tags": [
+              "避开生日扎堆",
               "含反偏好冷号4",
-              "无历史重号"
+              "无历史重号",
+              "奇偶均衡3:3"
             ]
           },
           {
             "rank": 7,
             "reds": [
-              1,
-              4,
-              10,
-              17,
-              18,
-              28
+              6,
+              12,
+              13,
+              27,
+              28,
+              30
             ],
             "blue": 12,
-            "model_score": 0.5425,
-            "uniqueness_score": 0.5825,
-            "composite_score": 0.6567,
-            "sum_val": 78,
+            "model_score": 0.4986,
+            "uniqueness_score": 0.6375,
+            "composite_score": 0.56,
+            "sum_val": 116,
             "odd_even": "2:4",
-            "ac_val": 10,
-            "consecutive": 1,
+            "ac_val": 8,
+            "consecutive": 2,
             "tags": [
-              "含1组镜像号",
-              "含反偏好冷号4",
-              "无历史重号"
+              "避开生日扎堆",
+              "无历史重号",
+              "与上期完全隔离"
             ]
           },
           {
             "rank": 8,
             "reds": [
-              2,
               6,
-              7,
-              13,
-              18,
-              25
+              11,
+              14,
+              15,
+              26,
+              31
             ],
             "blue": 12,
-            "model_score": 0.5258,
-            "uniqueness_score": 0.63,
-            "composite_score": 0.6081,
-            "sum_val": 71,
+            "model_score": 0.4908,
+            "uniqueness_score": 0.68,
+            "composite_score": 0.5523,
+            "sum_val": 103,
             "odd_even": "3:3",
-            "ac_val": 6,
+            "ac_val": 8,
             "consecutive": 1,
             "tags": [
+              "避开生日扎堆",
+              "含反偏好冷号4",
               "无历史重号",
               "与上期完全隔离",
               "奇偶均衡3:3"
@@ -1079,77 +1082,75 @@
           {
             "rank": 1,
             "reds": [
-              4,
-              5,
-              14,
-              18,
+              1,
+              3,
+              17,
               20,
-              33
+              22,
+              32
             ],
             "blue": 3,
-            "model_score": 0.5292,
-            "uniqueness_score": 0.8225,
-            "composite_score": 0.7515,
-            "sum_val": 94,
-            "odd_even": "2:4",
+            "model_score": 0.532,
+            "uniqueness_score": 0.75,
+            "composite_score": 0.7759,
+            "sum_val": 95,
+            "odd_even": "3:3",
             "ac_val": 8,
-            "consecutive": 1,
+            "consecutive": 0,
             "tags": [
+              "历史高重合(5红)",
               "含>31冷号",
               "破除生日偏置",
               "避开生日扎堆",
-              "反吉利偏置",
-              "含反偏好冷号4"
+              "反吉利偏置"
             ]
           },
           {
             "rank": 2,
             "reds": [
-              6,
+              2,
               10,
-              19,
+              13,
+              14,
               22,
-              30,
-              32
+              25
             ],
             "blue": 3,
-            "model_score": 0.5403,
-            "uniqueness_score": 0.72,
-            "composite_score": 0.737,
-            "sum_val": 119,
-            "odd_even": "1:5",
-            "ac_val": 9,
-            "consecutive": 0,
+            "model_score": 0.5423,
+            "uniqueness_score": 0.6725,
+            "composite_score": 0.7726,
+            "sum_val": 86,
+            "odd_even": "2:4",
+            "ac_val": 5,
+            "consecutive": 1,
             "tags": [
-              "含>31冷号",
-              "破除生日偏置",
               "避开生日扎堆",
-              "无历史重号",
-              "奇偶偏斜1:5"
+              "反吉利偏置",
+              "含反偏好冷号4",
+              "无历史重号"
             ]
           },
           {
             "rank": 3,
             "reds": [
-              2,
-              14,
-              16,
-              22,
-              29,
-              32
+              4,
+              11,
+              13,
+              18,
+              20,
+              24
             ],
             "blue": 3,
-            "model_score": 0.532,
-            "uniqueness_score": 0.74,
-            "composite_score": 0.7104,
-            "sum_val": 115,
-            "odd_even": "1:5",
-            "ac_val": 10,
+            "model_score": 0.526,
+            "uniqueness_score": 0.6725,
+            "composite_score": 0.7014,
+            "sum_val": 90,
+            "odd_even": "2:4",
+            "ac_val": 6,
             "consecutive": 0,
             "tags": [
-              "含>31冷号",
-              "破除生日偏置",
               "避开生日扎堆",
+              "反吉利偏置",
               "含反偏好冷号4",
               "无历史重号"
             ]
@@ -1158,124 +1159,125 @@
             "rank": 4,
             "reds": [
               5,
-              6,
-              20,
-              21,
-              23,
-              32
+              8,
+              10,
+              17,
+              26,
+              33
             ],
             "blue": 3,
-            "model_score": 0.5232,
-            "uniqueness_score": 0.72,
-            "composite_score": 0.6551,
-            "sum_val": 107,
+            "model_score": 0.5048,
+            "uniqueness_score": 0.765,
+            "composite_score": 0.6664,
+            "sum_val": 99,
             "odd_even": "3:3",
-            "ac_val": 8,
-            "consecutive": 2,
+            "ac_val": 7,
+            "consecutive": 0,
             "tags": [
-              "历史高重合(5红)",
               "含>31冷号",
               "破除生日偏置",
-              "避开生日扎堆",
-              "含1组镜像号"
+              "无历史重号",
+              "奇偶均衡3:3"
             ]
           },
           {
             "rank": 5,
             "reds": [
-              5,
-              7,
-              13,
-              20,
-              22,
-              25
+              4,
+              6,
+              16,
+              19,
+              32,
+              33
             ],
             "blue": 3,
-            "model_score": 0.5284,
-            "uniqueness_score": 0.6525,
-            "composite_score": 0.6354,
-            "sum_val": 92,
-            "odd_even": "4:2",
-            "ac_val": 8,
-            "consecutive": 0,
+            "model_score": 0.487,
+            "uniqueness_score": 0.8375,
+            "composite_score": 0.6337,
+            "sum_val": 110,
+            "odd_even": "2:4",
+            "ac_val": 9,
+            "consecutive": 1,
             "tags": [
+              "含32/33冷号",
+              "破除生日偏置",
               "避开生日扎堆",
-              "反吉利偏置",
+              "含反偏好冷号4",
               "无历史重号"
             ]
           },
           {
             "rank": 6,
             "reds": [
-              4,
-              10,
+              11,
+              12,
               14,
-              21,
-              26,
-              28
+              17,
+              27,
+              30
             ],
             "blue": 3,
-            "model_score": 0.5363,
-            "uniqueness_score": 0.59,
-            "composite_score": 0.632,
-            "sum_val": 103,
-            "odd_even": "1:5",
-            "ac_val": 9,
-            "consecutive": 0,
+            "model_score": 0.4973,
+            "uniqueness_score": 0.62,
+            "composite_score": 0.5434,
+            "sum_val": 111,
+            "odd_even": "3:3",
+            "ac_val": 6,
+            "consecutive": 1,
             "tags": [
+              "历史高重合(5红)",
               "避开生日扎堆",
+              "反吉利偏置",
               "含反偏好冷号4",
-              "无历史重号",
-              "奇偶偏斜1:5"
+              "奇偶均衡3:3"
             ]
           },
           {
             "rank": 7,
             "reds": [
-              2,
-              4,
-              9,
-              17,
-              19,
-              21
+              8,
+              13,
+              15,
+              23,
+              28,
+              30
             ],
             "blue": 3,
-            "model_score": 0.5116,
-            "uniqueness_score": 0.6125,
-            "composite_score": 0.5286,
-            "sum_val": 72,
-            "odd_even": "4:2",
-            "ac_val": 6,
+            "model_score": 0.482,
+            "uniqueness_score": 0.66,
+            "composite_score": 0.5014,
+            "sum_val": 117,
+            "odd_even": "3:3",
+            "ac_val": 5,
             "consecutive": 0,
             "tags": [
-              "含反偏好冷号4",
-              "无历史重号"
+              "避开生日扎堆",
+              "无历史重号",
+              "与上期完全隔离",
+              "奇偶均衡3:3"
             ]
           },
           {
             "rank": 8,
             "reds": [
-              3,
-              10,
-              24,
-              25,
-              30,
-              33
+              2,
+              9,
+              12,
+              18,
+              28,
+              31
             ],
             "blue": 3,
-            "model_score": 0.4817,
-            "uniqueness_score": 0.815,
-            "composite_score": 0.5192,
-            "sum_val": 125,
-            "odd_even": "3:3",
-            "ac_val": 10,
-            "consecutive": 1,
+            "model_score": 0.4852,
+            "uniqueness_score": 0.6075,
+            "composite_score": 0.4828,
+            "sum_val": 100,
+            "odd_even": "2:4",
+            "ac_val": 6,
+            "consecutive": 0,
             "tags": [
-              "含>31冷号",
-              "破除生日偏置",
-              "避开生日扎堆",
-              "含1组镜像号",
-              "反吉利偏置"
+              "无历史重号",
+              "与上期完全隔离"
             ]
           }
         ]
@@ -1288,51 +1290,51 @@
           {
             "rank": 1,
             "reds": [
-              3,
-              13,
+              4,
+              5,
               14,
-              20,
-              30,
+              22,
+              26,
               32
             ],
             "blue": 14,
-            "model_score": 0.5413,
-            "uniqueness_score": 0.8225,
-            "composite_score": 0.8094,
-            "sum_val": 112,
-            "odd_even": "2:4",
+            "model_score": 0.5601,
+            "uniqueness_score": 0.725,
+            "composite_score": 0.8831,
+            "sum_val": 103,
+            "odd_even": "1:5",
             "ac_val": 8,
             "consecutive": 1,
             "tags": [
+              "历史高重合(5红)",
               "含>31冷号",
               "破除生日偏置",
               "避开生日扎堆",
-              "含1组镜像号",
               "反吉利偏置"
             ]
           },
           {
             "rank": 2,
             "reds": [
-              5,
-              10,
-              14,
-              20,
+              6,
+              15,
+              18,
               21,
-              26
+              25,
+              32
             ],
             "blue": 14,
-            "model_score": 0.5511,
-            "uniqueness_score": 0.7025,
-            "composite_score": 0.7771,
-            "sum_val": 96,
-            "odd_even": "2:4",
-            "ac_val": 7,
-            "consecutive": 1,
+            "model_score": 0.5196,
+            "uniqueness_score": 0.825,
+            "composite_score": 0.7684,
+            "sum_val": 117,
+            "odd_even": "3:3",
+            "ac_val": 8,
+            "consecutive": 0,
             "tags": [
+              "含>31冷号",
+              "破除生日偏置",
               "避开生日扎堆",
-              "反吉利偏置",
-              "含反偏好冷号4",
               "大众回避蓝",
               "无历史重号"
             ]
@@ -1340,51 +1342,49 @@
           {
             "rank": 3,
             "reds": [
-              4,
-              5,
-              8,
-              12,
+              10,
+              17,
+              18,
               20,
-              32
+              29,
+              30
             ],
             "blue": 14,
-            "model_score": 0.5487,
-            "uniqueness_score": 0.695,
-            "composite_score": 0.7607,
-            "sum_val": 81,
-            "odd_even": "1:5",
+            "model_score": 0.5533,
+            "uniqueness_score": 0.5775,
+            "composite_score": 0.7616,
+            "sum_val": 124,
+            "odd_even": "2:4",
             "ac_val": 7,
-            "consecutive": 1,
+            "consecutive": 2,
             "tags": [
-              "含>31冷号",
-              "破除生日偏置",
-              "月份区密集",
-              "反吉利偏置",
-              "含反偏好冷号4"
+              "历史高重合(5红)",
+              "避开生日扎堆",
+              "大众回避蓝"
             ]
           },
           {
             "rank": 4,
             "reds": [
-              3,
+              7,
+              10,
+              14,
               19,
-              22,
-              28,
-              29,
-              32
+              21,
+              27
             ],
             "blue": 14,
-            "model_score": 0.5148,
-            "uniqueness_score": 0.825,
-            "composite_score": 0.6842,
-            "sum_val": 133,
-            "odd_even": "3:3",
-            "ac_val": 8,
-            "consecutive": 1,
+            "model_score": 0.5192,
+            "uniqueness_score": 0.7025,
+            "composite_score": 0.6904,
+            "sum_val": 98,
+            "odd_even": "4:2",
+            "ac_val": 9,
+            "consecutive": 0,
             "tags": [
-              "含>31冷号",
-              "破除生日偏置",
               "避开生日扎堆",
+              "反吉利偏置",
+              "含反偏好冷号4",
               "大众回避蓝",
               "无历史重号"
             ]
@@ -1392,103 +1392,105 @@
           {
             "rank": 5,
             "reds": [
-              4,
-              6,
-              11,
-              21,
+              1,
+              8,
+              19,
               22,
-              29
+              24,
+              30
             ],
             "blue": 14,
-            "model_score": 0.535,
-            "uniqueness_score": 0.665,
-            "composite_score": 0.6753,
-            "sum_val": 93,
-            "odd_even": "3:3",
-            "ac_val": 8,
-            "consecutive": 1,
+            "model_score": 0.5239,
+            "uniqueness_score": 0.6125,
+            "composite_score": 0.6549,
+            "sum_val": 104,
+            "odd_even": "2:4",
+            "ac_val": 9,
+            "consecutive": 0,
             "tags": [
+              "历史高重合(5红)",
+              "避开生日扎堆",
               "含反偏好冷号4",
               "大众回避蓝",
-              "无历史重号",
-              "奇偶均衡3:3"
+              "与上期完全隔离"
             ]
           },
           {
             "rank": 6,
             "reds": [
-              7,
-              12,
-              18,
-              21,
+              6,
+              13,
+              16,
+              20,
               22,
               33
             ],
             "blue": 14,
-            "model_score": 0.5086,
-            "uniqueness_score": 0.825,
-            "composite_score": 0.6546,
-            "sum_val": 113,
-            "odd_even": "3:3",
-            "ac_val": 8,
-            "consecutive": 1,
+            "model_score": 0.503,
+            "uniqueness_score": 0.7425,
+            "composite_score": 0.6445,
+            "sum_val": 110,
+            "odd_even": "2:4",
+            "ac_val": 9,
+            "consecutive": 0,
             "tags": [
+              "历史高重合(5红)",
               "含>31冷号",
               "破除生日偏置",
               "避开生日扎堆",
-              "含1组镜像号",
-              "反吉利偏置"
+              "大众回避蓝"
             ]
           },
           {
             "rank": 7,
             "reds": [
               2,
-              10,
-              12,
-              14,
-              18,
-              31
+              13,
+              24,
+              26,
+              28,
+              29
             ],
             "blue": 14,
-            "model_score": 0.5283,
-            "uniqueness_score": 0.62,
-            "composite_score": 0.6135,
-            "sum_val": 87,
-            "odd_even": "1:5",
-            "ac_val": 7,
-            "consecutive": 0,
+            "model_score": 0.503,
+            "uniqueness_score": 0.6875,
+            "composite_score": 0.6103,
+            "sum_val": 122,
+            "odd_even": "2:4",
+            "ac_val": 8,
+            "consecutive": 1,
             "tags": [
-              "反吉利偏置",
+              "避开生日扎堆",
               "含反偏好冷号4",
               "大众回避蓝",
               "无历史重号",
-              "奇偶偏斜1:5"
+              "与上期完全隔离"
             ]
           },
           {
             "rank": 8,
             "reds": [
-              2,
               4,
-              9,
-              18,
-              25,
-              27
+              12,
+              19,
+              20,
+              23,
+              31
             ],
             "blue": 14,
-            "model_score": 0.514,
-            "uniqueness_score": 0.665,
-            "composite_score": 0.5748,
-            "sum_val": 85,
+            "model_score": 0.4984,
+            "uniqueness_score": 0.65,
+            "composite_score": 0.5669,
+            "sum_val": 109,
             "odd_even": "3:3",
-            "ac_val": 5,
-            "consecutive": 0,
+            "ac_val": 6,
+            "consecutive": 1,
             "tags": [
+              "历史高重合(5红)",
+              "避开生日扎堆",
+              "反吉利偏置",
               "含反偏好冷号4",
-              "大众回避蓝",
-              "无历史重号",
-              "奇偶均衡3:3"
+              "大众回避蓝"
             ]
           }
         ]
@@ -1501,50 +1503,50 @@
           {
             "rank": 1,
             "reds": [
-              8,
+              4,
+              5,
               10,
-              25,
-              27,
-              29,
+              13,
+              22,
               32
             ],
             "blue": 15,
-            "model_score": 0.5217,
-            "uniqueness_score": 0.825,
-            "composite_score": 0.7173,
-            "sum_val": 131,
-            "odd_even": "3:3",
-            "ac_val": 6,
-            "consecutive": 0,
+            "model_score": 0.5524,
+            "uniqueness_score": 0.7625,
+            "composite_score": 0.8728,
+            "sum_val": 86,
+            "odd_even": "2:4",
+            "ac_val": 9,
+            "consecutive": 1,
             "tags": [
+              "与上期重合4号",
               "含>31冷号",
               "破除生日偏置",
-              "避开生日扎堆",
-              "大众回避蓝",
-              "无历史重号"
+              "反吉利偏置",
+              "含反偏好冷号4"
             ]
           },
           {
             "rank": 2,
             "reds": [
-              4,
-              10,
+              8,
               14,
-              17,
-              19,
-              30
+              20,
+              21,
+              26,
+              29
             ],
             "blue": 15,
-            "model_score": 0.5379,
-            "uniqueness_score": 0.7025,
-            "composite_score": 0.7139,
-            "sum_val": 94,
+            "model_score": 0.5405,
+            "uniqueness_score": 0.6025,
+            "composite_score": 0.7212,
+            "sum_val": 118,
             "odd_even": "2:4",
-            "ac_val": 9,
-            "consecutive": 0,
+            "ac_val": 7,
+            "consecutive": 1,
             "tags": [
               "避开生日扎堆",
-              "反吉利偏置",
+              "含4项次级等差",
               "含反偏好冷号4",
               "大众回避蓝",
               "无历史重号"
@@ -1553,155 +1555,155 @@
           {
             "rank": 3,
             "reds": [
-              11,
-              18,
+              3,
+              17,
               20,
-              24,
-              25,
-              32
+              30,
+              32,
+              33
             ],
             "blue": 15,
-            "model_score": 0.518,
-            "uniqueness_score": 0.7825,
-            "composite_score": 0.6715,
-            "sum_val": 130,
-            "odd_even": "2:4",
-            "ac_val": 7,
+            "model_score": 0.4964,
+            "uniqueness_score": 0.87,
+            "composite_score": 0.695,
+            "sum_val": 135,
+            "odd_even": "3:3",
+            "ac_val": 8,
             "consecutive": 1,
             "tags": [
-              "含>31冷号",
+              "含32/33冷号",
               "破除生日偏置",
               "避开生日扎堆",
-              "含4项次级等差",
+              "含1组镜像号",
               "反吉利偏置"
             ]
           },
           {
             "rank": 4,
             "reds": [
-              1,
-              3,
-              4,
-              17,
-              28,
-              32
+              2,
+              7,
+              8,
+              13,
+              18,
+              25
             ],
             "blue": 15,
-            "model_score": 0.5079,
-            "uniqueness_score": 0.845,
-            "composite_score": 0.6644,
-            "sum_val": 85,
+            "model_score": 0.5174,
+            "uniqueness_score": 0.66,
+            "composite_score": 0.6561,
+            "sum_val": 73,
             "odd_even": "3:3",
-            "ac_val": 10,
+            "ac_val": 6,
             "consecutive": 1,
             "tags": [
-              "含>31冷号",
-              "破除生日偏置",
-              "反吉利偏置",
-              "含反偏好冷号4",
-              "大众回避蓝"
+              "大众回避蓝",
+              "无历史重号",
+              "与上期完全隔离",
+              "奇偶均衡3:3"
             ]
           },
           {
             "rank": 5,
             "reds": [
-              5,
-              8,
-              14,
+              6,
+              15,
               21,
               22,
-              26
+              25,
+              30
             ],
             "blue": 15,
-            "model_score": 0.5409,
-            "uniqueness_score": 0.5975,
-            "composite_score": 0.6589,
-            "sum_val": 96,
-            "odd_even": "2:4",
-            "ac_val": 10,
+            "model_score": 0.5059,
+            "uniqueness_score": 0.705,
+            "composite_score": 0.6339,
+            "sum_val": 119,
+            "odd_even": "3:3",
+            "ac_val": 8,
             "consecutive": 1,
             "tags": [
-              "历史高重合(5红)",
               "避开生日扎堆",
-              "含反偏好冷号4",
-              "大众回避蓝"
+              "反吉利偏置",
+              "大众回避蓝",
+              "无历史重号",
+              "奇偶均衡3:3"
             ]
           },
           {
             "rank": 6,
             "reds": [
-              4,
-              11,
-              14,
-              20,
-              22,
-              27
+              1,
+              10,
+              12,
+              17,
+              18,
+              23
             ],
             "blue": 15,
-            "model_score": 0.5284,
-            "uniqueness_score": 0.6275,
-            "composite_score": 0.6189,
-            "sum_val": 98,
-            "odd_even": "2:4",
-            "ac_val": 8,
-            "consecutive": 0,
+            "model_score": 0.5107,
+            "uniqueness_score": 0.645,
+            "composite_score": 0.6175,
+            "sum_val": 81,
+            "odd_even": "3:3",
+            "ac_val": 7,
+            "consecutive": 1,
             "tags": [
-              "历史高重合(5红)",
-              "避开生日扎堆",
+              "含1组镜像号",
               "反吉利偏置",
-              "含反偏好冷号4",
-              "大众回避蓝"
+              "大众回避蓝",
+              "无历史重号",
+              "奇偶均衡3:3"
             ]
           },
           {
             "rank": 7,
             "reds": [
-              5,
+              4,
               6,
-              10,
-              18,
-              19,
-              29
+              12,
+              26,
+              28,
+              33
             ],
             "blue": 15,
-            "model_score": 0.5262,
-            "uniqueness_score": 0.585,
-            "composite_score": 0.5803,
-            "sum_val": 87,
-            "odd_even": "3:3",
+            "model_score": 0.4795,
+            "uniqueness_score": 0.74,
+            "composite_score": 0.5403,
+            "sum_val": 109,
+            "odd_even": "1:5",
             "ac_val": 8,
-            "consecutive": 2,
+            "consecutive": 0,
             "tags": [
-              "吉利尾数扎堆",
+              "含>31冷号",
+              "破除生日偏置",
+              "含反偏好冷号4",
               "大众回避蓝",
-              "无历史重号",
-              "奇偶均衡3:3"
+              "无历史重号"
             ]
           },
           {
             "rank": 8,
             "reds": [
-              6,
-              13,
-              16,
-              20,
-              25,
-              29
+              5,
+              7,
+              11,
+              15,
+              28,
+              31
             ],
             "blue": 15,
-            "model_score": 0.5059,
-            "uniqueness_score": 0.69,
-            "composite_score": 0.5525,
-            "sum_val": 109,
-            "odd_even": "3:3",
-            "ac_val": 7,
+            "model_score": 0.453,
+            "uniqueness_score": 0.6,
+            "composite_score": 0.3374,
+            "sum_val": 97,
+            "odd_even": "5:1",
+            "ac_val": 9,
             "consecutive": 0,
             "tags": [
-              "避开生日扎堆",
+              "反吉利偏置",
               "大众回避蓝",
               "无历史重号",
-              "与上期完全隔离",
-              "奇偶均衡3:3"
+              "奇偶偏斜5:1"
             ]
           }
         ]

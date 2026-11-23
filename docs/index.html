@@ -1091,9 +1091,22 @@ function selectMeihuaTickets(pool, date, numbers, mode, gamma) {
 
   scoredPool.sort((a, b) => b.final_meihua_score - a.final_meihua_score);
 
-  // DFS search for optimal 5 tickets under ball_freq <= 2 (and <= 3 fallback)
+  // DFS search for optimal 5 tickets prioritizing pairwise overlap <= 1, then <= 2
   let selected = [];
-  for (const maxFreq of [2, 3, 5]) {
+  let constraintsRelaxed = false;
+  let relaxationReason = '';
+
+  const tiers = [
+    { maxOv: 1, maxFreq: 2 },
+    { maxOv: 2, maxFreq: 2 },
+    { maxOv: 3, maxFreq: 2 },
+    { maxOv: 6, maxFreq: 2 },
+    { maxOv: 2, maxFreq: 3 },
+    { maxOv: 3, maxFreq: 3 },
+    { maxOv: 6, maxFreq: 3 },
+  ];
+
+  for (const tier of tiers) {
     let bestCombo = null;
     let bestSum = -1e9;
 
@@ -1114,7 +1127,17 @@ function selectMeihuaTickets(pool, date, numbers, mode, gamma) {
       if (mode === 'balanced' && usedBlues.has(t.blue)) canAdd = false;
       if (canAdd) {
         for (const r of t.reds) {
-          if ((ballCounts[r] || 0) >= maxFreq) { canAdd = false; break; }
+          if ((ballCounts[r] || 0) >= tier.maxFreq) { canAdd = false; break; }
+        }
+      }
+      if (canAdd) {
+        const tSet = new Set(t.reds);
+        for (const prev of cur) {
+          let ov = 0;
+          for (const pr of prev.reds) {
+            if (tSet.has(pr)) ov++;
+          }
+          if (ov > tier.maxOv) { canAdd = false; break; }
         }
       }
 
@@ -1136,21 +1159,41 @@ function selectMeihuaTickets(pool, date, numbers, mode, gamma) {
     dfs(0, [], new Set(), {}, 0.0);
     if (bestCombo && bestCombo.length === 5) {
       selected = bestCombo;
+      if (tier.maxOv > 1 || tier.maxFreq > 2) {
+        constraintsRelaxed = true;
+        relaxationReason = `两两重叠<=${tier.maxOv}, 频次<=${tier.maxFreq}`;
+      }
       break;
     }
   }
 
   // Fallback if DFS didn't yield 5
   if (selected.length < 5) {
+    constraintsRelaxed = true;
+    relaxationReason = '候选不足，兜底补齐';
     for (const t of scoredPool) {
-      if (!selected.includes(t)) {
+      const already = selected.some(s => s.reds.join(',') === t.reds.join(',') && s.blue === t.blue);
+      if (!already) {
         selected.push(t);
         if (selected.length === 5) break;
       }
     }
   }
 
-  return { hex, fortune, selected, shichenNum, lockedElement, lockedBlue };
+  // Calculate actual max pairwise overlap
+  let actualMaxOverlap = 0;
+  for (let i = 0; i < selected.length; i++) {
+    for (let j = i + 1; j < selected.length; j++) {
+      const s1 = new Set(selected[i].reds);
+      let ov = 0;
+      for (const r of selected[j].reds) {
+        if (s1.has(r)) ov++;
+      }
+      if (ov > actualMaxOverlap) actualMaxOverlap = ov;
+    }
+  }
+
+  return { hex, fortune, selected, shichenNum, lockedElement, lockedBlue, actualMaxOverlap, constraintsRelaxed, relaxationReason };
 }
 
 // --- UI Interaction Logic ---
@@ -1345,13 +1388,24 @@ function runDivination() {
   // Jackpot Dynamic Lock Banner
   const lockBanner = document.getElementById('jackpot-lock-banner');
   const complianceTag = document.getElementById('compliance-tag');
+  const ovMsg = lastResult.actualMaxOverlap <= 1 ? '最大两两重叠 ≤ 1 (互斥达标)' : `最大两两重叠 ${lastResult.actualMaxOverlap} (降级达标)`;
+  const blueMsg = (currentMode === 'jackpot' && lastResult.lockedElement && lastResult.lockedBlue)
+    ? `动态锁定单蓝 ${String(lastResult.lockedBlue).padStart(2, '0')}`
+    : '蓝球去重通过';
+
   if (currentMode === 'jackpot' && lastResult.lockedElement && lastResult.lockedBlue) {
     lockBanner.style.display = 'block';
     lockBanner.textContent = `🎯 已按当刻喜用五行【${lastResult.lockedElement}】动态锁定单蓝 ${String(lastResult.lockedBlue).padStart(2, '0')}`;
-    if (complianceTag) complianceTag.textContent = `🔒 铁律校验通过: 未改动原注任何数字 · 动态锁定单蓝 ${String(lastResult.lockedBlue).padStart(2, '0')} · 单球频次 ≤ 2`;
   } else {
     lockBanner.style.display = 'none';
-    if (complianceTag) complianceTag.textContent = '🔒 铁律校验通过: 未改动原注任何数字 · 蓝球去重通过 · 单球频次 ≤ 2';
+  }
+
+  if (complianceTag) {
+    if (lastResult.constraintsRelaxed) {
+      complianceTag.innerHTML = `⚠️ 铁律校验: [降级] 未改动原注 · ${blueMsg} · ${ovMsg} · <span style="color:#fbbf24;">${lastResult.relaxationReason}</span>`;
+    } else {
+      complianceTag.textContent = `🔒 铁律校验通过: 未改动原注任何数字 · ${blueMsg} · ${ovMsg} · 单球频次 ≤ 2`;
+    }
   }
 
   // Render Tickets

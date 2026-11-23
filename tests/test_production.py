@@ -308,3 +308,201 @@ class TestAuditPoolCommand:
         assert '双色球候选池实战复盘体检' in captured
         assert '26134' in captured
         assert '一等奖' in captured
+
+
+class TestCLIArgsBacktestPriority:
+    def test_backtest_cli_days_not_masked_by_draws(self):
+        import argparse
+        from main import main
+        # Build parser matching main.py
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers(dest='command')
+        p_backtest = subparsers.add_parser('backtest')
+        p_backtest.add_argument('--draws', type=int, default=None)
+        p_backtest.add_argument('--days', type=int, default=None)
+        p_backtest.add_argument('--count', type=int, default=5)
+
+        # 1. When user passes only --days 30
+        args1 = parser.parse_args(['backtest', '--days', '30'])
+        assert args1.days == 30
+        assert args1.draws is None, "--draws default must be None so --days is not masked"
+
+        # 2. When user passes only --draws 50
+        args2 = parser.parse_args(['backtest', '--draws', '50'])
+        assert args2.draws == 50
+        assert args2.days is None
+
+        # 3. When user passes neither
+        args3 = parser.parse_args(['backtest'])
+        assert args3.draws is None
+        assert args3.days is None
+
+
+class TestSingleSourcePrizeEvaluation:
+    def test_prize_ssq_standard_and_fuyun_rule(self):
+        from src.prize import determine_prize_level, evaluate_ticket
+
+        # Standard rules
+        assert determine_prize_level(6, 1) == ('一等奖', 5000000)
+        assert determine_prize_level(6, 0) == ('二等奖', 150000)
+        assert determine_prize_level(5, 1) == ('三等奖', 3000)
+        assert determine_prize_level(5, 0) == ('四等奖', 200)
+        assert determine_prize_level(4, 1) == ('四等奖', 200)
+        assert determine_prize_level(4, 0) == ('五等奖', 10)
+        assert determine_prize_level(3, 1) == ('五等奖', 10)
+        assert determine_prize_level(2, 1) == ('六等奖', 5)
+        assert determine_prize_level(1, 1) == ('六等奖', 5)
+        assert determine_prize_level(0, 1) == ('六等奖', 5)
+        assert determine_prize_level(2, 0) == ('未中奖', 0)
+
+        # 2026 福运奖 (3+0)
+        assert determine_prize_level(3, 0, special_rule_active=False) == ('未中奖', 0)
+        assert determine_prize_level(3, 0, special_rule_active=True) == ('福运奖', 5)
+
+        # evaluate_ticket
+        ev_win = evaluate_ticket([1, 2, 3, 4, 5, 6], 8, [1, 2, 3, 10, 11, 12], 9, special_rule_active=True)
+        assert ev_win['red_hit'] == 3
+        assert ev_win['blue_hit'] == 0
+        assert ev_win['prize_level'] == '福运奖'
+        assert ev_win['prize_amount'] == 5
+        assert ev_win['is_winner'] is True
+
+        ev_lose = evaluate_ticket([1, 2, 3, 4, 5, 6], 8, [10, 11, 12, 13, 14, 15], 9)
+        assert ev_lose['prize_amount'] == 0
+        assert ev_lose['is_winner'] is False
+
+
+class TestTicketValidationAndDeDuplication:
+    def test_validate_selected_tickets_rules(self):
+        from src.meihua import validate_selected_tickets
+
+        # 1. Valid 5 tickets
+        valid_tickets = [
+            {'reds': [1, 2, 3, 4, 5, 6], 'blue': 1},
+            {'reds': [7, 8, 9, 10, 11, 12], 'blue': 2},
+            {'reds': [13, 14, 15, 16, 17, 18], 'blue': 3},
+            {'reds': [19, 20, 21, 22, 23, 24], 'blue': 4},
+            {'reds': [25, 26, 27, 28, 29, 30], 'blue': 5},
+        ]
+        res = validate_selected_tickets(valid_tickets, mode='balanced', expected_count=5, max_ball_freq=2, max_pairwise_overlap=1)
+        assert res['is_valid'] is True
+        assert res['max_actual_overlap'] == 0
+        assert res['distinct_blues'] == 5
+
+        # 2. Duplicate combinations
+        dup_tickets = list(valid_tickets)
+        dup_tickets[1] = {'reds': [1, 2, 3, 4, 5, 6], 'blue': 1}
+        res_dup = validate_selected_tickets(dup_tickets, mode='balanced')
+        assert res_dup['is_valid'] is False
+        assert any("存在重复投注号码" in issue for issue in res_dup['issues'])
+
+        # 3. Invalid ball ranges
+        invalid_ball = [
+            {'reds': [1, 2, 3, 4, 5, 34], 'blue': 1},  # 34 > 33
+            {'reds': [7, 8, 9, 10, 11, 12], 'blue': 17}, # 17 > 16
+            {'reds': [13, 14, 15, 16, 17, 18], 'blue': 3},
+            {'reds': [19, 20, 21, 22, 23, 24], 'blue': 4},
+            {'reds': [25, 26, 27, 28, 29, 30], 'blue': 5},
+        ]
+        res_inv = validate_selected_tickets(invalid_ball, mode='balanced')
+        assert res_inv['is_valid'] is False
+        assert any("红球非法" in issue for issue in res_inv['issues'])
+        assert any("蓝球非法" in issue for issue in res_inv['issues'])
+
+        # 4. Balanced mode blue duplicate
+        blue_dup = list(valid_tickets)
+        blue_dup[1] = {'reds': [7, 8, 9, 10, 11, 12], 'blue': 1}  # blue 1 repeated
+        res_bdup = validate_selected_tickets(blue_dup, mode='balanced')
+        assert res_bdup['is_valid'] is False
+        assert any("蓝球未完全去重" in issue for issue in res_bdup['issues'])
+
+        # 5. Jackpot mode blue not locked
+        res_jnotlock = validate_selected_tickets(valid_tickets, mode='jackpot')
+        assert res_jnotlock['is_valid'] is False
+        assert any("蓝球未锁定单蓝" in issue for issue in res_jnotlock['issues'])
+
+
+class TestMeihuaDFSOverlapLimit:
+    def test_dfs_prioritizes_overlap_le_1(self):
+        from src.meihua import select_meihua_tickets
+        from datetime import datetime
+
+        # Create candidate pool with high dispersion tickets
+        candidates = [
+            {'rank': 1, 'reds': [1, 2, 3, 4, 5, 6], 'blue': 1, 'composite_score': 0.95},
+            {'rank': 2, 'reds': [7, 8, 9, 10, 11, 12], 'blue': 2, 'composite_score': 0.90},
+            {'rank': 3, 'reds': [13, 14, 15, 16, 17, 18], 'blue': 3, 'composite_score': 0.85},
+            {'rank': 4, 'reds': [19, 20, 21, 22, 23, 24], 'blue': 4, 'composite_score': 0.80},
+            {'rank': 5, 'reds': [25, 26, 27, 28, 29, 30], 'blue': 5, 'composite_score': 0.75},
+            {'rank': 6, 'reds': [1, 7, 13, 19, 25, 31], 'blue': 6, 'composite_score': 0.70},
+            {'rank': 7, 'reds': [2, 8, 14, 20, 26, 32], 'blue': 7, 'composite_score': 0.65},
+            {'rank': 8, 'reds': [3, 9, 15, 21, 27, 33], 'blue': 8, 'composite_score': 0.60},
+        ]
+
+        res = select_meihua_tickets(
+            candidates,
+            purchase_dt=datetime(2026, 11, 23, 10, 0),
+            numbers=[3, 8],
+            mode='balanced',
+            target_count=5,
+            max_ball_freq=2,
+        )
+
+        assert len(res['selected_tickets']) == 5
+        assert res['actual_max_overlap'] <= 1, f"Actual max overlap {res['actual_max_overlap']} > 1"
+        assert res['constraints_relaxed'] is False
+        assert res['validation']['is_valid'] is True
+
+
+class TestJackpotBlueReplacementRescoring:
+    def test_blue_replacement_recomputes_scores(self, tmp_path, monkeypatch):
+        import pandas as pd
+        from datetime import datetime, timedelta
+        from src.game_theory import select_game_theory_combinations, UniquenessScorer, AntiPopularityFilter
+        from src.model import EnsembleModel, StatisticalModel
+
+        db_path = str(tmp_path / "test_gt.db")
+        csv_path = str(tmp_path / "test_gt.csv")
+        monkeypatch.setattr(config, 'DB_PATH', db_path)
+        monkeypatch.setattr(config, 'CSV_PATH', csv_path)
+
+        storage.init_db()
+        # Create minimal 60 draws
+        records = []
+        base_d = datetime(2026, 1, 1)
+        for i in range(60):
+            d_str = (base_d + timedelta(days=i * 2)).strftime('%Y-%m-%d')
+            issue_str = f"26{i + 1:03d}"
+            records.append({
+                'issue': issue_str,
+                'draw_date': d_str,
+                'red_1': (i % 5) + 1,
+                'red_2': (i % 5) + 7,
+                'red_3': (i % 5) + 13,
+                'red_4': (i % 5) + 19,
+                'red_5': (i % 5) + 25,
+                'red_6': (i % 5) + 29,
+                'blue': (i % 16) + 1
+            })
+        storage.insert_draws(records)
+        df = storage.get_all_draws()
+
+        model_stat = StatisticalModel()
+        model_stat.fit(df)
+
+        combos, stats = select_game_theory_combinations(
+            model_stat,
+            n_combinations=5,
+            mode='jackpot',
+            pool_size=100,
+            df=df,
+            random_seed=42
+        )
+
+        assert len(combos) == 5
+        locked_blue = stats['locked_blue']
+        for c in combos:
+            assert c['blue'] == locked_blue
+            # Verify model score matches actual score_combination with the new blue
+            expected_m = round(model_stat.score_combination(c['reds'], locked_blue), 4)
+            assert c['model_score'] == expected_m

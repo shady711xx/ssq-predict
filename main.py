@@ -77,13 +77,17 @@ def cmd_backtest(args):
     storage.init_db()
     draws = getattr(args, 'draws', None)
     days = getattr(args, 'days', None)
-    if draws is None and days is None:
+    if draws is not None:
+        period_str = f'最近 {draws} 期'
+    elif days is not None:
+        period_str = f'过去 {days} 天'
+    else:
         draws = 100
+        period_str = f'最近 {draws} 期 (默认)'
     count = args.count
     special_rule = getattr(args, 'special_rule', False)
     seed = getattr(args, 'seed', 42)
 
-    period_str = f'最近 {draws} 期' if draws else f'过去 {days} 天'
     print(f'\n🔍 正在执行 {period_str} 的 Walk-Forward 消融回测分析 (每期 {count} 注, 随机种子: {seed})...')
     if special_rule:
         print('⭐ 已激活 2026 新规福运奖 (3红+0蓝=5元)')
@@ -96,7 +100,7 @@ def cmd_backtest(args):
         special_rule=special_rule,
         random_seed=seed,
     )
-    print_backtest_report(summary, special_rule=special_rule)
+    print_backtest_report(detail_results, summary)
     save_backtest_report(detail_results, summary)
 
 
@@ -254,10 +258,15 @@ def cmd_meihua(args):
         headers=['序号', '池排名', '红球推荐 (6码)', '蓝球', '基底分', '梅花分', '终审分', '匹配喜用红球'],
         tablefmt='grid'
     ))
-    if mode == 'jackpot':
-        print(f"🔒 铁律合规校验: [通过] 严禁改动原注任何数字 | 动态锁定单蓝 {result.get('locked_blue', 0):02d} | 单红球最高出现 <= 2 次")
+    actual_ov = result.get('actual_max_overlap', 1)
+    ov_status = f"最大两两红球重叠: {actual_ov} (互斥达标)" if actual_ov <= 1 else f"最大两两红球重叠: {actual_ov} (降级达标)"
+    blue_info = f"动态锁定单蓝 {result.get('locked_blue', 0):02d}" if mode == 'jackpot' else "蓝球去重通过"
+
+    if result.get('constraints_relaxed'):
+        reason = result.get('relaxation_reason', '约束放宽')
+        print(f"⚠️ 铁律合规校验: [降级通过] 严禁改动原注任何数字 | {blue_info} | {ov_status} | 提示: {reason}")
     else:
-        print("🔒 铁律合规校验: [通过] 严禁改动原注任何数字 | 蓝球去重通过 | 单红球最高出现 <= 2 次")
+        print(f"🔒 铁律合规校验: [通过] 严禁改动原注任何数字 | {blue_info} | {ov_status} | 单红球最高出现 <= 2 次")
     print('=' * 85)
 
 
@@ -336,15 +345,17 @@ def cmd_audit_pool(args):
 
         if mode_name == 'balanced':
             tickets = mode_data
-            mode_title = "稳健保底池 (balanced, 20 注)"
+            mode_title = f"稳健保底池 (balanced, {len(tickets)} 注)"
         else:
             if isinstance(mode_data, dict):
                 tickets = [t for b in mode_data.values() for t in b.get('tickets', [])]
+                mode_title = f"冲大奖分桶池 (jackpot, 5五行桶共 {len(tickets)} 注)"
             else:
                 tickets = mode_data
-            mode_title = f"冲大奖分桶池 (jackpot, 5五行桶共 {len(tickets)} 注)"
+                mode_title = f"冲大奖池 (jackpot, 共 {len(tickets)} 注)"
 
         # Calculate metrics
+        from src.prize import evaluate_ticket
         red_hits_list = []
         blue_hits_list = []
         prize_records = []
@@ -365,17 +376,23 @@ def cmd_audit_pool(args):
             blue_wuxing_counts[b_elem] += 1
             blues_covered.add(int(t['blue']))
 
-            # Check SSQ prize
-            prize_info = config.PRIZE_RULES.get((r_hits, 1 if b_hit else 0))
-            if prize_info:
+            # Check SSQ prize using single source of truth
+            ev = evaluate_ticket(
+                t['reds'],
+                t['blue'],
+                actual_reds,
+                actual_blue,
+                special_rule_active=getattr(config, 'SPECIAL_RULE_ACTIVE', False),
+            )
+            if ev['is_winner']:
                 prize_records.append({
                     'rank': t.get('rank', '-'),
                     'reds': t['reds'],
                     'blue': t['blue'],
                     'r_hits': r_hits,
                     'b_hit': b_hit,
-                    'prize_desc': prize_info['desc'],
-                    'prize_amount': prize_info['prize'],
+                    'prize_desc': ev['prize_level'],
+                    'prize_amount': ev['prize_amount'],
                 })
 
         avg_red_hits = sum(red_hits_list) / len(red_hits_list) if red_hits_list else 0.0
@@ -611,7 +628,7 @@ def main():
 
     # backtest
     p_backtest = subparsers.add_parser('backtest', help='执行 Walk-Forward 消融回测')
-    p_backtest.add_argument('--draws', type=int, default=100, help='回测期数 (默认: 100)')
+    p_backtest.add_argument('--draws', type=int, default=None, help='回测期数 (默认: 100, 显式指定时优先于 --days)')
     p_backtest.add_argument('--days', type=int, default=None, help='回测天数 (例如: 30)')
     p_backtest.add_argument('--count', type=int, default=5, help='每期推荐注数 (默认: 5)')
     p_backtest.add_argument('--special-rule', action='store_true', help='激活 2026 新规福运奖 (3+0=5元)')

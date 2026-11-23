@@ -247,6 +247,7 @@ def export_frozen_candidate_pool(
 
     # 1. Sample 1,500 valid candidate combinations uniformly across all 16 blues
     raw_candidates: List[Dict[str, Any]] = []
+    seen_combos: Set[Tuple[Tuple[int, ...], int]] = set()
     target_candidates = 1500
     attempts = 0
     max_attempts = 15000
@@ -272,6 +273,10 @@ def export_frozen_candidate_pool(
             avail_nums.pop(idx)
             avail_w = np.delete(avail_w, idx)
         reds.sort()
+
+        combo_key = (tuple(reds), b)
+        if combo_key in seen_combos:
+            continue
 
         is_pass, _ = filter_obj.is_valid(reds, b)
         if not is_pass:
@@ -300,6 +305,7 @@ def export_frozen_candidate_pool(
                 'consecutive': int(feat_module.compute_consecutive_count(reds)),
             }
         })
+        seen_combos.add(combo_key)
 
     # Normalize scores across candidates for both balanced and jackpot
     m_scores = [c['model_score'] for c in raw_candidates]
@@ -335,6 +341,7 @@ def export_frozen_candidate_pool(
         for max_red_f in [4, 5]:
             for enforce_parity in [True, False]:
                 selected: List[Dict[str, Any]] = []
+                seen_red_tuples: Set[Tuple[int, ...]] = set()
                 red_counts: Counter = Counter()
                 blue_counts: Counter = Counter()
 
@@ -343,6 +350,9 @@ def export_frozen_candidate_pool(
                 for b in sorted_blues:
                     found = False
                     for c in cands_by_blue[b]:
+                        red_tup = tuple(c['reds'])
+                        if red_tup in seen_red_tuples:
+                            continue
                         if enforce_parity and c['odd_count'] not in (2, 3, 4) and sum(1 for x in selected if x['odd_count'] in (2, 3, 4)) < 12:
                             continue
                         if any(red_counts[r] >= max_red_f for r in c['reds']):
@@ -350,6 +360,7 @@ def export_frozen_candidate_pool(
                         if any(len(set(c['reds']) & set(prev['reds'])) > max_ov for prev in selected):
                             continue
                         selected.append(c)
+                        seen_red_tuples.add(red_tup)
                         blue_counts[b] += 1
                         for r in c['reds']:
                             red_counts[r] += 1
@@ -357,11 +368,15 @@ def export_frozen_candidate_pool(
                         break
                     if not found:
                         for c in cands_by_blue[b]:
+                            red_tup = tuple(c['reds'])
+                            if red_tup in seen_red_tuples:
+                                continue
                             if any(red_counts[r] >= max_red_f for r in c['reds']):
                                 continue
                             if any(len(set(c['reds']) & set(prev['reds'])) > max_ov for prev in selected):
                                 continue
                             selected.append(c)
+                            seen_red_tuples.add(red_tup)
                             blue_counts[b] += 1
                             for r in c['reds']:
                                 red_counts[r] += 1
@@ -379,6 +394,9 @@ def export_frozen_candidate_pool(
                 for c in sorted_all_b:
                     if len(selected) == 20:
                         break
+                    red_tup = tuple(c['reds'])
+                    if red_tup in seen_red_tuples:
+                        continue
                     if blue_counts[c['blue']] >= 2:
                         continue
                     if any(red_counts[r] >= max_red_f for r in c['reds']):
@@ -391,6 +409,7 @@ def export_frozen_candidate_pool(
                             continue
 
                     selected.append(c)
+                    seen_red_tuples.add(red_tup)
                     blue_counts[c['blue']] += 1
                     for r in c['reds']:
                         red_counts[r] += 1
@@ -405,6 +424,17 @@ def export_frozen_candidate_pool(
                 break
         if len(balanced_selected) == 20:
             break
+
+    # Fallback if balanced pool still has fewer than 20
+    if len(balanced_selected) < 20:
+        seen_reds = {tuple(x['reds']) for x in balanced_selected}
+        sorted_all_b = sorted(raw_candidates, key=lambda x: x['score_balanced'], reverse=True)
+        for c in sorted_all_b:
+            if tuple(c['reds']) not in seen_reds:
+                balanced_selected.append(c)
+                seen_reds.add(tuple(c['reds']))
+                if len(balanced_selected) == 20:
+                    break
 
     # Sort balanced Top 20 by score_balanced descending
     balanced_selected.sort(key=lambda x: x['score_balanced'], reverse=True)
@@ -462,16 +492,22 @@ def export_frozen_candidate_pool(
         blue_cands.sort(key=lambda x: x['score_jackpot'], reverse=True)
 
         bucket_selected: List[Dict[str, Any]] = []
-        for max_ov in [2, 3, 4, 6]:
-            for max_red_f in [3, 4]:
+        # Prefer low pairwise red overlap (1 -> 2 -> 3 -> 4) to maximize pairwise overlap <= 1 for Meihua DFS
+        for max_ov in [1, 2, 3, 4]:
+            for max_red_f in [2, 3, 4]:
                 bucket_selected = []
+                seen_bucket_reds: Set[Tuple[int, ...]] = set()
                 red_counts = Counter()
                 for c in blue_cands:
+                    red_tup = tuple(c['reds'])
+                    if red_tup in seen_bucket_reds:
+                        continue
                     if any(red_counts[r] >= max_red_f for r in c['reds']):
                         continue
                     if any(len(set(c['reds']) & set(prev['reds'])) > max_ov for prev in bucket_selected):
                         continue
                     bucket_selected.append(c)
+                    seen_bucket_reds.add(red_tup)
                     for r in c['reds']:
                         red_counts[r] += 1
                     if len(bucket_selected) == 8:
@@ -482,9 +518,12 @@ def export_frozen_candidate_pool(
                 break
 
         if len(bucket_selected) < 8:
+            seen_bucket_reds = {tuple(x['reds']) for x in bucket_selected}
             for c in blue_cands:
-                if c not in bucket_selected:
+                red_tup = tuple(c['reds'])
+                if red_tup not in seen_bucket_reds:
                     bucket_selected.append(c)
+                    seen_bucket_reds.add(red_tup)
                     if len(bucket_selected) == 8:
                         break
 

@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
+from src.prize import evaluate_ticket
 
 logger = logging.getLogger('ssq.storage')
 
@@ -368,18 +369,23 @@ def check_and_update_predictions() -> List[Dict[str, Any]]:
             target_issue = str(pred['target_issue']).zfill(5)
             if target_issue in draws_map:
                 actual = draws_map[target_issue]
-                actual_reds = {actual[f'red_{i}'] for i in range(1, 7)}
+                actual_reds = [actual[f'red_{i}'] for i in range(1, 7)]
                 actual_blue = actual['blue']
                 
-                pred_reds = {pred[f'red_{i}'] for i in range(1, 7)}
+                pred_reds = [pred[f'red_{i}'] for i in range(1, 7)]
                 pred_blue = pred['blue']
                 
-                red_hits = len(pred_reds & actual_reds)
-                blue_hit = 1 if pred_blue == actual_blue else 0
-                
-                rule = config.PRIZE_RULES.get((red_hits, blue_hit), {'desc': '未中奖', 'prize': 0})
-                prize_level = rule['desc']
-                prize_amount = rule['prize']
+                ev = evaluate_ticket(
+                    pred_reds,
+                    pred_blue,
+                    actual_reds,
+                    actual_blue,
+                    special_rule_active=getattr(config, 'SPECIAL_RULE_ACTIVE', False)
+                )
+                red_hits = ev['red_hit']
+                blue_hit = ev['blue_hit']
+                prize_level = ev['prize_level']
+                prize_amount = ev['prize_amount']
                 
                 cursor.execute('''
                     UPDATE predictions 

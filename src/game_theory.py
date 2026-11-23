@@ -540,16 +540,17 @@ def select_game_theory_combinations(
 
     # 1. Sample raw candidate pool from model
     candidates: List[Dict[str, Any]] = []
+    seen_combos: Set[Tuple[Tuple[int, ...], int]] = set()
     rejected_count = 0
 
-    # Ensure sufficient candidates per blue ball
-    attempts = max(pool_size * 3, 1000)
+    # Ensure sufficient candidates per blue ball across all 16 blues
+    attempts = max(pool_size * 4, 1500)
     for _ in range(attempts):
         if len(candidates) >= pool_size:
             break
 
-        # Distribute blue balls across top options
-        b_idx = len(candidates) % min(10, len(sorted_blues))
+        # Distribute blue balls across all 16 options
+        b_idx = len(candidates) % len(sorted_blues)
         b = sorted_blues[b_idx]
 
         # Sample 6 distinct red balls
@@ -563,6 +564,10 @@ def select_game_theory_combinations(
             avail_nums.pop(idx)
             avail_w = np.delete(avail_w, idx)
         reds.sort()
+
+        combo_key = (tuple(reds), b)
+        if combo_key in seen_combos:
+            continue
 
         # Hard filtering
         is_pass, reasons = filter_obj.is_valid(reds, b)
@@ -589,6 +594,7 @@ def select_game_theory_combinations(
                 'consecutive': int(feat_module.compute_consecutive_count(reds)),
             },
         })
+        seen_combos.add(combo_key)
 
     # Fallback if candidates were insufficient
     if not candidates:
@@ -653,10 +659,27 @@ def select_game_theory_combinations(
         if len(jackpot_cands) < n_combinations:
             for c in candidates:
                 if c['blue'] != locked_blue and len(jackpot_cands) < pool_size:
+                    combo_key = (tuple(c['reds']), locked_blue)
+                    if combo_key in seen_combos:
+                        continue
                     c_copy = dict(c)
                     c_copy['blue'] = locked_blue
+                    new_model_s = model.score_combination(c_copy['reds'], locked_blue)
+                    new_u = scorer_obj.score(c_copy['reds'], locked_blue, mode='jackpot')
+                    c_copy['model_score'] = round(new_model_s, 4)
+                    c_copy['uniqueness_score'] = round(new_u['uniqueness_score'], 4)
+                    c_copy['tags'] = new_u['tags']
+                    norm_m = (c_copy['model_score'] - min_m) / denom_m
+                    norm_u = (c_copy['uniqueness_score'] - min_u) / denom_u
+                    c_copy['norm_model'] = round(float(norm_m), 4)
+                    c_copy['norm_uniqueness'] = round(float(norm_u), 4)
+                    c_copy['final_score'] = round(float((1.0 - beta) * norm_m + beta * norm_u), 4)
                     jackpot_cands.append(c_copy)
+                    seen_combos.add(combo_key)
+            jackpot_cands.sort(key=lambda x: x['final_score'], reverse=True)
 
+        constraints_relaxed = False
+        relaxation_reason = ""
         # Spread red combinations with overlap <= 2 and single ball freq <= max_ball_freq
         for max_ov in [2, 3, 4, 6]:
             for max_freq in [max_ball_freq, max_ball_freq + 1, n_combinations]:
@@ -673,10 +696,15 @@ def select_game_theory_combinations(
                     if len(selected) == n_combinations:
                         break
                 if len(selected) == n_combinations:
+                    if max_ov > 2 or max_freq > max_ball_freq:
+                        constraints_relaxed = True
+                        relaxation_reason = f"放宽约束至 max_ov={max_ov}, max_ball_freq={max_freq}"
                     break
             if len(selected) == n_combinations:
                 break
     else:
+        constraints_relaxed = False
+        relaxation_reason = ""
         # Balanced mode: 5 distinct blue balls, red overlap <= 3, single ball freq <= max_ball_freq
         for max_ov in [config.MAX_RED_OVERLAP, config.MAX_RED_OVERLAP + 1, 6]:
             for max_freq in [max_ball_freq, max_ball_freq + 1, n_combinations]:
@@ -697,14 +725,20 @@ def select_game_theory_combinations(
                     if len(selected) == n_combinations:
                         break
                 if len(selected) == n_combinations:
+                    if max_ov > config.MAX_RED_OVERLAP or max_freq > max_ball_freq:
+                        constraints_relaxed = True
+                        relaxation_reason = f"放宽约束至 max_ov={max_ov}, max_ball_freq={max_freq}"
                     break
             if len(selected) == n_combinations:
                 break
 
-    # If still fewer than requested, fill with top remaining candidates
-    while len(selected) < n_combinations and len(selected) < len(candidates):
-        for c in candidates:
-            if c not in selected:
+    # If still fewer than requested, fill with top remaining candidates without duplicate (reds, blue)
+    source_pool = jackpot_cands if mode == 'jackpot' else candidates
+    if len(selected) < n_combinations and len(source_pool) >= n_combinations:
+        constraints_relaxed = True
+        relaxation_reason = f"候选不足，兜底填充至 {n_combinations} 注 (放宽单球频次与重叠约束)"
+        for c in source_pool:
+            if not any((c['reds'] == prev['reds'] and c['blue'] == prev['blue']) for prev in selected):
                 selected.append(c)
                 if len(selected) == n_combinations:
                     break
@@ -717,6 +751,8 @@ def select_game_theory_combinations(
         'beta': beta,
         'max_ball_freq': max_ball_freq,
         'locked_blue': locked_blue if mode == 'jackpot' else None,
+        'constraints_relaxed': constraints_relaxed,
+        'relaxation_reason': relaxation_reason,
     }
 
     return selected, stats

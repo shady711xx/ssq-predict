@@ -9,8 +9,9 @@ Pure mathematical and Yi-Jing divination engine based on:
 6. Non-destructive final audit ranking for Top-20 candidate pool
 """
 import math
+from collections import Counter
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 # 1. Xiantian Bagua definitions (1-indexed)
 # 3-bit binary: (first_line, second_line, third_line) from bottom to top (Yang=1, Yin=0)
@@ -358,6 +359,98 @@ def score_ticket_meihua(reds: List[int], blue: int, wuxing_weights: Dict[str, fl
     return float(raw_score)
 
 
+def validate_selected_tickets(
+    tickets: List[Dict[str, Any]],
+    mode: str = 'balanced',
+    expected_count: int = 5,
+    max_ball_freq: int = 2,
+    max_pairwise_overlap: int = 1,
+) -> Dict[str, Any]:
+    """Strictly validate selected tickets against hard constraints.
+    
+    Checks:
+    1. Ticket count == expected_count
+    2. Combination uniqueness (no duplicate tickets)
+    3. Legal ball ranges: reds in [1, 33] distinct 6 balls, blue in [1, 16]
+    4. Ball frequency across tickets: each red ball freq <= max_ball_freq
+    5. Blue ball constraints:
+       - 'balanced': all blue balls must be distinct
+       - 'jackpot': all blue balls must be identical (locked single blue)
+    6. Pairwise red ball overlap: for all pairs (i, j), len(reds_i & reds_j) <= max_pairwise_overlap
+    
+    Returns:
+        dict: {
+            'is_valid': bool,
+            'issues': List[str],
+            'max_actual_freq': int,
+            'max_actual_overlap': int,
+            'distinct_blues': int,
+            'tickets_count': int,
+        }
+    """
+    issues: List[str] = []
+    
+    # 1. Count
+    if len(tickets) != expected_count:
+        issues.append(f"注数不符: 期望 {expected_count} 注，实际 {len(tickets)} 注")
+
+    # 2. Duplicate combinations
+    seen_combos = set()
+    for i, t in enumerate(tickets):
+        red_tuple = tuple(sorted(t['reds']))
+        combo_key = (red_tuple, int(t['blue']))
+        if combo_key in seen_combos:
+            issues.append(f"存在重复投注号码: 第 {i+1} 注 ({combo_key})")
+        seen_combos.add(combo_key)
+
+    # 3. Legal ranges
+    for i, t in enumerate(tickets):
+        reds = t['reds']
+        if len(reds) != 6 or len(set(reds)) != 6 or any(not (1 <= int(r) <= 33) for r in reds):
+            issues.append(f"第 {i+1} 注红球非法: {reds}")
+        if not (1 <= int(t['blue']) <= 16):
+            issues.append(f"第 {i+1} 注蓝球非法: {t['blue']}")
+
+    # 4. Red ball frequency
+    red_counts = Counter()
+    for t in tickets:
+        for r in t['reds']:
+            red_counts[int(r)] += 1
+    max_actual_freq = max(red_counts.values()) if red_counts else 0
+    if max_actual_freq > max_ball_freq:
+        over_balls = [f"{b}({c}次)" for b, c in red_counts.items() if c > max_ball_freq]
+        issues.append(f"单红球频次超标 (上限 {max_ball_freq} 次): {', '.join(over_balls)}")
+
+    # 5. Blue ball mode constraints
+    blues = [int(t['blue']) for t in tickets]
+    distinct_blues = len(set(blues))
+    if mode == 'balanced':
+        if distinct_blues != len(tickets):
+            issues.append(f"稳健保底模式下蓝球未完全去重: 出现 {distinct_blues} 个独立蓝球 (期望 {len(tickets)} 个)")
+    elif mode == 'jackpot':
+        if distinct_blues > 1:
+            issues.append(f"冲大奖模式下蓝球未锁定单蓝: 出现 {distinct_blues} 个不同蓝球")
+
+    # 6. Pairwise red overlap
+    max_actual_overlap = 0
+    for i in range(len(tickets)):
+        for j in range(i + 1, len(tickets)):
+            ov = len(set(tickets[i]['reds']) & set(tickets[j]['reds']))
+            if ov > max_actual_overlap:
+                max_actual_overlap = ov
+    if max_actual_overlap > max_pairwise_overlap:
+        issues.append(f"两两红球重叠超标 (上限 {max_pairwise_overlap} 个): 实际最大重叠为 {max_actual_overlap} 个")
+
+    return {
+        'is_valid': len(issues) == 0,
+        'issues': issues,
+        'max_actual_freq': max_actual_freq,
+        'max_actual_overlap': max_actual_overlap,
+        'distinct_blues': distinct_blues,
+        'tickets_count': len(tickets),
+    }
+
+
 def select_meihua_tickets(
     candidate_pool: Any,
     purchase_dt: Optional[datetime] = None,
@@ -497,9 +590,24 @@ def select_meihua_tickets(
 
     # Constrained optimal selection using pruned DFS across tickets
     selected: List[Dict[str, Any]] = []
-    fallback_relaxed = False
+    constraints_relaxed = False
+    relaxation_reason = ""
 
-    for allowed_freq in [max_ball_freq, max_ball_freq + 1, target_count]:
+    # Tiered constraint ladder:
+    # Prioritizes pairwise red overlap <= 1 and freq <= max_ball_freq (ideal mutually exclusive)
+    # Then steps down overlap (2 -> 3 -> 6), preserving freq <= max_ball_freq as long as possible
+    tiers = [
+        (1, max_ball_freq),
+        (2, max_ball_freq),
+        (3, max_ball_freq),
+        (6, max_ball_freq),
+        (2, max_ball_freq + 1),
+        (3, max_ball_freq + 1),
+        (6, max_ball_freq + 1),
+        (6, target_count),
+    ]
+
+    for allowed_ov, allowed_freq in tiers:
         best_combo: Optional[List[Dict[str, Any]]] = None
         best_sum: float = -1e9
 
@@ -523,6 +631,10 @@ def select_meihua_tickets(
                 can_add = False
             if can_add and any(ball_counts.get(r, 0) >= allowed_freq for r in t['reds']):
                 can_add = False
+            if can_add:
+                t_reds_set = set(t['reds'])
+                if any(len(t_reds_set & set(prev['reds'])) > allowed_ov for prev in current):
+                    can_add = False
 
             if can_add:
                 if mode == 'balanced':
@@ -546,17 +658,36 @@ def select_meihua_tickets(
 
         if best_combo and len(best_combo) == target_count:
             selected = best_combo
-            if allowed_freq > max_ball_freq:
-                fallback_relaxed = True
+            if allowed_ov > 1 or allowed_freq > max_ball_freq:
+                constraints_relaxed = True
+                relaxation_reason = f"降级为: 两两重叠<={allowed_ov}, 单球频次<={allowed_freq}"
             break
 
-    # Final fallback if pool is extremely small
+    # Final fallback if pool is extremely small or heavily constrained
     if len(selected) < target_count:
+        constraints_relaxed = True
+        relaxation_reason = f"候选池可用注数不足，兜底填充至 {len(scored_pool)} 注"
         for t in scored_pool:
-            if t not in selected:
+            if not any((t['reds'] == prev['reds'] and t['blue'] == prev['blue']) for prev in selected):
                 selected.append(t)
                 if len(selected) == target_count:
                     break
+
+    # Actual max overlap
+    actual_max_overlap = 0
+    for i in range(len(selected)):
+        for j in range(i + 1, len(selected)):
+            ov = len(set(selected[i]['reds']) & set(selected[j]['reds']))
+            if ov > actual_max_overlap:
+                actual_max_overlap = ov
+
+    validation = validate_selected_tickets(
+        selected,
+        mode=mode,
+        expected_count=target_count,
+        max_ball_freq=max_ball_freq,
+        max_pairwise_overlap=1,
+    )
 
     return {
         'purchase_time': purchase_dt.strftime('%Y-%m-%d %H:%M'),
@@ -568,7 +699,11 @@ def select_meihua_tickets(
         'gamma': gamma,
         'selected_tickets': selected,
         'ranked_pool': scored_pool,
-        'fallback_relaxed': fallback_relaxed,
+        'constraints_relaxed': constraints_relaxed,
+        'relaxation_reason': relaxation_reason,
+        'actual_max_overlap': actual_max_overlap,
+        'validation': validation,
+        'fallback_relaxed': constraints_relaxed,
         'locked_element': locked_element,
         'locked_blue': locked_blue,
     }

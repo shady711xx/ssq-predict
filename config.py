@@ -75,6 +75,7 @@ PRIZE_RULES = {
     (0, 1): {'desc': '六等奖', 'prize': 5},
 }
 SPECIAL_FUYUN_PRIZE = {'desc': '福运奖', 'prize': 5}
+SPECIAL_RULE_ACTIVE = False
 
 
 def ensure_dirs():

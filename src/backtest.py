@@ -33,60 +33,12 @@ from src.model import (
     StatisticalModel,
 )
 
+from src.prize import determine_prize_level, evaluate_ticket
+
 logger = logging.getLogger('ssq.backtest')
 
-
-def determine_prize_level(
-    red_hit: int,
-    blue_hit: int,
-    special_rule_active: bool = False,
-    special_rule: Optional[bool] = None,
-) -> Tuple[str, int]:
-    """Determine prize level based on official SSQ rules.
-    
-    Args:
-        red_hit: number of red balls matched (0-6)
-        blue_hit: number of blue balls matched (0 or 1)
-        special_rule_active: whether 2026 福运奖 (3+0 = 5元) is active
-        special_rule: alias for special_rule_active
-    
-    Returns:
-        tuple: (prize_level_name, prize_amount_cny)
-    """
-    if special_rule is not None:
-        special_rule_active = special_rule
-
-    # 2026 new rule: 福运奖 (3 red + 0 blue = 5 CNY)
-    if special_rule_active and (red_hit, blue_hit) == (3, 0):
-        return ('福运奖', 5)
-
-    rule = config.PRIZE_RULES.get((red_hit, blue_hit))
-    if rule is not None:
-        return (rule['desc'], rule['prize'])
-
-    return ('未中奖', 0)
-
-
-def evaluate_single_draw(
-    pred_reds: List[int],
-    pred_blue: int,
-    actual_reds: List[int],
-    actual_blue: int,
-    special_rule_active: bool = False,
-) -> Dict[str, Any]:
-    """Evaluate a single ticket against actual winning numbers."""
-    red_hit = len(set(pred_reds) & set(actual_reds))
-    blue_hit = 1 if pred_blue == actual_blue else 0
-    prize_level, prize_amount = determine_prize_level(
-        red_hit, blue_hit, special_rule_active=special_rule_active
-    )
-
-    return {
-        'red_hit': red_hit,
-        'blue_hit': blue_hit,
-        'prize_level': prize_level,
-        'prize_amount': prize_amount,
-    }
+# Maintain backward compatibility alias
+evaluate_single_draw = evaluate_ticket
 
 
 def compute_multi_label_log_loss(y_red_list: Any, p_red_list: Any) -> float:
@@ -275,9 +227,10 @@ def simulate_random_baseline_mc(
 
 def run_backtest(
     days: Optional[int] = None,
-    draws: Optional[int] = 100,
+    draws: Optional[int] = None,
     n_combinations: int = 5,
     special_rule_active: bool = False,
+    special_rule: Optional[bool] = None,
     random_seed: int = 42,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """Run Walk-Forward backtesting with multi-strategy ablation comparison.
@@ -293,7 +246,7 @@ def run_backtest(
     
     Args:
         days: Filter by last N days (if draws is None)
-        draws: Number of recent draws to backtest (default: 100)
+        draws: Number of recent draws to backtest (default: 100 if both draws and days are None)
         n_combinations: Number of tickets per draw (default: 5)
         special_rule_active: Whether to enable 2026 福运奖 (3+0=5元)
         random_seed: Random seed for reproducible backtesting (default: 42)
@@ -304,6 +257,9 @@ def run_backtest(
     import random
     random.seed(random_seed)
     np.random.seed(random_seed)
+
+    if special_rule is not None:
+        special_rule_active = special_rule
 
     all_draws = storage.get_all_draws()
     if all_draws.empty:
@@ -325,7 +281,7 @@ def run_backtest(
         test_period_desc = f'最近 {days} 天 ({len(test_draws)} 期)'
     else:
         test_draws = all_draws.tail(100).copy()
-        test_period_desc = f'最近 {len(test_draws)} 期'
+        test_period_desc = f'最近 {len(test_draws)} 期 (默认)'
 
     n_test_draws = len(test_draws)
     logger.info(f'Starting walk-forward backtest over {n_test_draws} draws ({test_period_desc})')
@@ -680,13 +636,28 @@ def run_backtest(
 
 
 def print_backtest_report(
-    detail_results: List[Dict[str, Any]],
-    summary: Dict[str, Any],
+    arg1: Any,
+    arg2: Optional[Dict[str, Any]] = None,
     recent_detail_count: int = 14,
+    special_rule: Optional[bool] = None,
+    **kwargs: Any,
 ) -> None:
     """Print ablation comparison table and recent draws detail."""
-    if not detail_results:
-        print('\n❌ No backtest results to display.')
+    if isinstance(arg1, list) and isinstance(arg2, dict):
+        detail_results = arg1
+        summary = arg2
+    elif isinstance(arg1, dict) and (arg2 is None or isinstance(arg2, (int, str))):
+        summary = arg1
+        detail_results = summary.get('detail_results', [])
+    elif isinstance(arg1, dict) and isinstance(arg2, list):
+        summary = arg1
+        detail_results = arg2
+    else:
+        summary = arg2 if isinstance(arg2, dict) else (arg1 if isinstance(arg1, dict) else {})
+        detail_results = arg1 if isinstance(arg1, list) else []
+
+    if not summary:
+        print('\n❌ No backtest summary to display.')
         return
 
     print('\n' + '=' * 90)
