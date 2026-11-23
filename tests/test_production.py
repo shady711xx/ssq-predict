@@ -7,6 +7,7 @@
 """
 import os
 import sqlite3
+from collections import Counter
 import pytest
 import pandas as pd
 import numpy as np
@@ -190,10 +191,11 @@ class TestCandidatePoolRecentDrawsExport:
         pool_file = str(tmp_path / "pool.json")
         backup_file = str(tmp_path / "backup_pool.json")
 
-        pool_data = export_frozen_candidate_pool(output_path=pool_file, backup_path=backup_file)
+        pool_data = export_frozen_candidate_pool(output_path=pool_file, backup_path=backup_file, random_seed=42)
 
+        # 1. Recent draws top-level retention and meta redundancy cleanup
         assert 'recent_draws' in pool_data
-        assert 'recent_draws' in pool_data['meta']
+        assert 'recent_draws' not in pool_data['meta']
         assert len(pool_data['recent_draws']) == 10
 
         first_draw = pool_data['recent_draws'][0]
@@ -202,5 +204,107 @@ class TestCandidatePoolRecentDrawsExport:
         assert 'reds' in first_draw and len(first_draw['reds']) == 6
         assert 'blue' in first_draw and 1 <= first_draw['blue'] <= 16
 
-        assert len(pool_data['pools']['balanced']) == 20
-        assert len(pool_data['pools']['jackpot']) == 20
+        # 2. Balanced pool 16-blue full coverage and parity balance assertions
+        balanced = pool_data['pools']['balanced']
+        assert len(balanced) == 20
+
+        unique_blues = set(t['blue'] for t in balanced)
+        assert len(unique_blues) == 16, f"Expected 16 unique blues, got {len(unique_blues)}: {unique_blues}"
+        assert unique_blues == set(range(1, 17))
+
+        # Check no extreme parity (0:6 or 6:0) and no 3-consecutive in balanced
+        mainstream_count = 0
+        red_counts = Counter()
+        for t in balanced:
+            reds = t['reds']
+            odd_cnt = sum(1 for r in reds if r % 2 == 1)
+            assert odd_cnt not in (0, 6), f"Extreme parity {odd_cnt}:{6-odd_cnt} found in ticket {reds}"
+            if odd_cnt in (2, 3, 4):
+                mainstream_count += 1
+            # No 3-consecutive
+            for i in range(len(reds) - 2):
+                assert not (reds[i+1] == reds[i]+1 and reds[i+2] == reds[i]+2), f"3-consecutive found in {reds}"
+            for r in reds:
+                red_counts[r] += 1
+
+        assert mainstream_count / len(balanced) >= 0.75, f"Mainstream parity ratio {mainstream_count/20} < 75%"
+        assert max(red_counts.values()) <= 5, f"Max red ball frequency {max(red_counts.values())} > 5"
+
+        # 3. Jackpot pool 5-element bucket assertions
+        jackpot = pool_data['pools']['jackpot']
+        assert isinstance(jackpot, dict)
+        assert set(jackpot.keys()) == {'水', '火', '木', '金', '土'}
+
+        total_jackpot_tickets = 0
+        for elem, bucket in jackpot.items():
+            assert bucket['element'] == elem
+            assert 1 <= bucket['blue'] <= 16
+            assert len(bucket['tickets']) == 8
+            total_jackpot_tickets += len(bucket['tickets'])
+
+            # Check single red ball frequency within bucket <= 3
+            bucket_red_counts = Counter()
+            for t in bucket['tickets']:
+                assert t['blue'] == bucket['blue']
+                for r in t['reds']:
+                    bucket_red_counts[r] += 1
+            assert max(bucket_red_counts.values()) <= 3, f"Bucket {elem} red ball freq exceeds 3"
+
+        assert total_jackpot_tickets == 40
+
+
+class TestAuditPoolCommand:
+    def test_cmd_audit_pool_execution(self, tmp_path, monkeypatch, capsys):
+        import argparse
+        import json
+        from main import cmd_audit_pool
+
+        # Setup isolated DB
+        db_path = str(tmp_path / "test_ssq.db")
+        csv_path = str(tmp_path / "test_history.csv")
+        monkeypatch.setattr(config, 'DB_PATH', db_path)
+        monkeypatch.setattr(config, 'CSV_PATH', csv_path)
+
+        storage.init_db()
+        storage.insert_draws([{
+            'issue': '26134',
+            'draw_date': '2026-11-22',
+            'red_1': 4, 'red_2': 5, 'red_3': 10, 'red_4': 17, 'red_5': 21, 'red_6': 32,
+            'blue': 8,
+        }])
+
+        pool_file = str(tmp_path / "pool_26134.json")
+        pool_json = {
+            'meta': {
+                'target_issue': '26134',
+                'target_draw_date': '2026-11-22 (周日)',
+                'generated_at': '2026-11-21 12:00:00',
+            },
+            'recent_draws': [],
+            'pools': {
+                'balanced': [
+                    {'rank': 1, 'reds': [4, 5, 10, 17, 21, 32], 'blue': 8},  # 6+1 First Prize
+                    {'rank': 2, 'reds': [1, 2, 3, 11, 22, 30], 'blue': 8},   # 0+1 Sixth Prize
+                ],
+                'jackpot': {
+                    '木': {
+                        'element': '木',
+                        'blue': 8,
+                        'blue_score': 0.85,
+                        'tickets': [
+                            {'rank': 1, 'reds': [4, 5, 10, 17, 21, 32], 'blue': 8},
+                        ]
+                    }
+                }
+            }
+        }
+        with open(pool_file, 'w', encoding='utf-8') as f:
+            json.dump(pool_json, f, ensure_ascii=False)
+
+        args = argparse.Namespace(issue='26134', file=pool_file)
+        cmd_audit_pool(args)
+
+        captured = capsys.readouterr().out
+        assert '双色球候选池实战复盘体检' in captured
+        assert '26134' in captured
+        assert '一等奖' in captured

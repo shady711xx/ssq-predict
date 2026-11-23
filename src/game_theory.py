@@ -72,9 +72,11 @@ class AntiPopularityFilter:
         Rejection criteria:
         1. Exact duplicate of any historical draw in SQLite
         2. Strong arithmetic progression (6-ball AP or any 5-ball AP)
-        3. Extreme consecutive sequence (>= 4 consecutive numbers)
+        3. Consecutive sequence (>= 3 consecutive numbers)
         4. Pure month zone crowding (all 6 reds <= 12)
         5. Extreme last-digit collision (>= 4 balls share the same last digit)
+        6. Extreme odd/even ratio (0:6 all even or 6:0 all odd)
+        7. Extreme sum value (< 70 or > 145)
         
         Returns:
             (is_valid: bool, reject_reasons: list[str])
@@ -97,7 +99,7 @@ class AntiPopularityFilter:
                     reasons.append('包含5项等差数列')
                     break
 
-        # 3. Consecutive numbers check (>= 4)
+        # 3. Consecutive numbers check (>= 3)
         max_consec = 1
         curr_consec = 1
         for i in range(len(sorted_reds) - 1):
@@ -106,7 +108,7 @@ class AntiPopularityFilter:
                 max_consec = max(max_consec, curr_consec)
             else:
                 curr_consec = 1
-        if max_consec >= 4:
+        if max_consec >= 3:
             reasons.append(f'包含{max_consec}连号')
 
         # 4. Pure month zone crowding (all <= 12)
@@ -118,6 +120,21 @@ class AntiPopularityFilter:
         tail_counts = Counter(tails)
         if any(c >= 4 for c in tail_counts.values()):
             reasons.append('4个及以上同尾号')
+
+        # 6. Extreme odd/even ratio (0:6 or 6:0)
+        odd_count = sum(1 for r in sorted_reds if r % 2 == 1)
+        even_count = 6 - odd_count
+        if odd_count == 0:
+            reasons.append('全偶数(0:6)')
+        elif even_count == 0:
+            reasons.append('全奇数(6:0)')
+
+        # 7. Extreme sum value
+        s = sum(sorted_reds)
+        if s < 70:
+            reasons.append(f'极端低和值({s}<70)')
+        elif s > 145:
+            reasons.append(f'极端高和值({s}>145)')
 
         return len(reasons) == 0, reasons
 
@@ -149,14 +166,15 @@ class UniquenessScorer:
             if self.latest_reds is None and not history_df.empty:
                 self.latest_reds = feat_module.get_red_balls_from_row(history_df.iloc[-1])
 
-    def score(self, reds: List[int], blue: int) -> Dict[str, Any]:
+    def score(self, reds: List[int], blue: int, mode: str = 'balanced') -> Dict[str, Any]:
         """Calculate multi-dimensional uniqueness score.
         
         Weights:
-        - 破除生日偏置 (35%): >=32 加分, 全<=31 扣分, 01-12扎堆扣分
-        - 次级规律与视觉惩罚 (25%): 4项等差、3连号、镜像对、步长过于均匀扣分
-        - 文化与心理反转 (20%): 6/8/9吉利尾数扣分, 4及回避蓝加分, 热门蓝扣分
-        - 历史高重合度 (20%): 历史重合5红或与上期重合>=4扣分
+        - 破除生日偏置 (30%): >=32 加分, 全<=31 扣分, 01-12扎堆扣分
+        - 次级规律与视觉惩罚 (20%): 4项等差、镜像对、步长过于均匀扣分
+        - 文化与心理反转 (20%): 6/8/9吉利尾数扣分, 4及回避蓝加分(jackpot强/balanced弱), 热门蓝扣分
+        - 历史高重合度 (15%): 历史重合5红或与上期重合>=4扣分
+        - 奇偶均衡度 (15%): 3:3/4:2/2:4不扣分, 1:5/5:1扣分
         
         Returns:
             dict containing uniqueness_score (0..1), breakdown, and tags
@@ -165,7 +183,7 @@ class UniquenessScorer:
         tags: List[str] = []
 
         # -------------------------------------------------------------
-        # 1. 破除生日偏置 (35%)
+        # 1. 破除生日偏置 (30%)
         # -------------------------------------------------------------
         s_birthday = 0.50
         has_32 = 32 in sorted_reds
@@ -193,7 +211,7 @@ class UniquenessScorer:
         s_birthday = float(np.clip(s_birthday, 0.0, 1.0))
 
         # -------------------------------------------------------------
-        # 2. 次级规律与视觉图形惩罚 (25%)
+        # 2. 次级规律与视觉图形惩罚 (20%)
         # -------------------------------------------------------------
         s_pattern = 0.85
 
@@ -208,15 +226,11 @@ class UniquenessScorer:
             s_pattern -= 0.35
             tags.append('含4项次级等差')
 
-        # 3 consecutive numbers (heavy penalty to prevent 3-consec piggybacking on 32/33)
-        has_3_consec = False
-        for i in range(len(sorted_reds) - 2):
-            if sorted_reds[i + 1] == sorted_reds[i] + 1 and sorted_reds[i + 2] == sorted_reds[i] + 2:
-                has_3_consec = True
-                break
+        # 3-consecutive natural numbers
+        has_3_consec = any(sorted_reds[i + 2] == sorted_reds[i] + 2 and sorted_reds[i + 1] == sorted_reds[i] + 1 for i in range(len(sorted_reds) - 2))
         if has_3_consec:
-            s_pattern -= 0.55
-            tags.insert(0, '含3连号(高碰撞风险)')
+            s_pattern -= 0.50
+            tags.append('含3连号')
 
         # Mirror number pairs
         red_set = set(sorted_reds)
@@ -247,23 +261,25 @@ class UniquenessScorer:
             s_cultural += 0.15
             tags.append('反吉利偏置')
 
-        # Avoided numbers containing 4
+        # Avoided numbers containing 4: capped bonus (1 hit = full bonus, no linear stacking)
         avoided_hits = sum(1 for r in sorted_reds if r in AVOIDED_REDS)
         if avoided_hits > 0:
-            s_cultural += min(0.10 * avoided_hits, 0.20)
+            s_cultural += 0.10  # Fixed cap: 1 hit = 0.10, no more stacking
             tags.append('含反偏好冷号4')
 
-        # Blue ball psychological traits
+        # Blue ball psychological traits (mode-aware)
+        blue_weight_scale = 0.30 if mode == 'balanced' else 1.0
         if blue in AVOIDED_BLUES:
-            s_cultural += 0.15
-            tags.append('大众回避蓝')
+            s_cultural += 0.15 * blue_weight_scale
+            if blue_weight_scale >= 0.5:
+                tags.append('大众回避蓝')
         elif blue in POPULAR_BLUES:
-            s_cultural -= 0.15
+            s_cultural -= 0.15 * blue_weight_scale
 
         s_cultural = float(np.clip(s_cultural, 0.0, 1.0))
 
         # -------------------------------------------------------------
-        # 4. 历史高重合度惩罚 (20%)
+        # 4. 历史高重合度惩罚 (15%)
         # -------------------------------------------------------------
         s_history = 0.85
         cand_mask = sum(1 << (r - 1) for r in sorted_reds)
@@ -291,12 +307,32 @@ class UniquenessScorer:
 
         s_history = float(np.clip(s_history, 0.0, 1.0))
 
+        # -------------------------------------------------------------
+        # 5. 奇偶均衡度 (15%)
+        # -------------------------------------------------------------
+        odd_count = sum(1 for r in sorted_reds if r % 2 == 1)
+        even_count = 6 - odd_count
+        s_parity = 0.70
+
+        if odd_count == 3:  # 3:3 ideal
+            s_parity += 0.25
+            tags.append('奇偶均衡3:3')
+        elif odd_count in (2, 4):  # 2:4 or 4:2 acceptable
+            s_parity += 0.10
+        elif odd_count in (1, 5):  # 1:5 or 5:1 mild penalty
+            s_parity -= 0.25
+            tags.append(f'奇偶偏斜{odd_count}:{even_count}')
+        # 0:6 and 6:0 are already hard-filtered out
+
+        s_parity = float(np.clip(s_parity, 0.0, 1.0))
+
         # Weighted final score
         final_score = (
-            0.35 * s_birthday
-            + 0.25 * s_pattern
+            0.30 * s_birthday
+            + 0.20 * s_pattern
             + 0.20 * s_cultural
-            + 0.20 * s_history
+            + 0.15 * s_history
+            + 0.15 * s_parity
         )
         final_score = float(np.clip(final_score, 0.0, 1.0))
 
@@ -315,6 +351,7 @@ class UniquenessScorer:
                 'pattern_penalty': round(s_pattern, 4),
                 'cultural_bias': round(s_cultural, 4),
                 'history_overlap': round(s_history, 4),
+                'parity_balance': round(s_parity, 4),
             },
             'tags': clean_tags[:5],  # Top distinctive tags
         }
@@ -534,7 +571,7 @@ def select_game_theory_combinations(
             continue
 
         # Soft uniqueness scoring
-        uniq_res = scorer_obj.score(reds, b)
+        uniq_res = scorer_obj.score(reds, b, mode=mode)
         model_score = model.score_combination(reds, b)
         u_score = uniq_res['uniqueness_score']
 
@@ -558,7 +595,7 @@ def select_game_theory_combinations(
         logger.warning('Candidate pool empty after filtering, falling back to top model prediction.')
         raw_pred = model.predict(n_combinations=n_combinations, df=df)
         for p in raw_pred:
-            u_res = scorer_obj.score(p['reds'], p['blue'])
+            u_res = scorer_obj.score(p['reds'], p['blue'], mode=mode)
             p['uniqueness_score'] = u_res['uniqueness_score']
             p['final_score'] = p['score']
             p['tags'] = u_res['tags']

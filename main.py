@@ -8,6 +8,7 @@ Commands:
     run-daily   - Run daily automated pipeline (update -> check -> predict -> export-pool)
     export-pool - Export top-20 frozen candidate pool for mobile app
     meihua      - Run interactive Meihua Yishu divination on candidate pool
+    audit-pool  - Retrospective audit of candidate pool against actual draw
     schedule    - Start scheduled daily tasks
 """
 import argparse
@@ -138,10 +139,15 @@ def cmd_export_pool(args):
     pool_data = export_frozen_candidate_pool()
     meta = pool_data['meta']
     b_count = len(pool_data['pools']['balanced'])
-    j_count = len(pool_data['pools']['jackpot'])
+    j_data = pool_data['pools']['jackpot']
+    if isinstance(j_data, dict):
+        j_total = sum(len(b['tickets']) for b in j_data.values())
+        j_desc = f"{len(j_data)} 桶 (共 {j_total} 注)"
+    else:
+        j_desc = f"{len(j_data)} 注"
     print(f"✅ 成功导出候选池！目标期号: {meta['target_issue']} ({meta['target_draw_date']})")
-    print(f"   - 稳健保底池 (balanced): {b_count} 注")
-    print(f"   - 冲大奖池 (jackpot): {j_count} 注")
+    print(f"   - 稳健保底池 (balanced): {b_count} 注 (16 蓝全覆盖)")
+    print(f"   - 冲大奖分桶池 (jackpot): {j_desc}")
     print(f"   - 输出文件: docs/data/pool.json & reports/latest_pool.json")
 
 
@@ -185,7 +191,7 @@ def cmd_meihua(args):
 
     target_issue = pool_json['meta']['target_issue']
     draw_date_str = pool_json['meta']['target_draw_date']
-    candidate_pool = pool_json['pools'].get(mode, [])
+    candidate_pool = pool_json['pools'].get(mode)
     if not candidate_pool:
         print(f'❌ 模式 {mode} 在候选池中无数据。')
         return
@@ -223,7 +229,10 @@ def cmd_meihua(args):
     avoided_str = ' / '.join(fortune['avoided_elements']) if fortune['avoided_elements'] else '无'
     print(f"   - 喜用五行: {favored_str} | 忌讳五行: {avoided_str}")
     print('-' * 85)
-    print(f"🎯 终审精选 5 注号码 (模式: {mode}, 梅花融合权重 gamma={gamma}):")
+    if mode == 'jackpot':
+        print(f"🎯 终审精选 5 注号码 (模式: 冲大奖型, 动态锁定五行【{result.get('locked_element')}】蓝球: {result.get('locked_blue', 0):02d}, 梅花融合权重 gamma={gamma}):")
+    else:
+        print(f"🎯 终审精选 5 注号码 (模式: 稳健保底型, 梅花融合权重 gamma={gamma}):")
 
     table_data = []
     for i, t in enumerate(selected):
@@ -245,7 +254,168 @@ def cmd_meihua(args):
         headers=['序号', '池排名', '红球推荐 (6码)', '蓝球', '基底分', '梅花分', '终审分', '匹配喜用红球'],
         tablefmt='grid'
     ))
-    print("🔒 铁律合规校验: [通过] 严禁改动原注任何数字 | 蓝球去重通过 | 单红球最高出现 <= 2 次")
+    if mode == 'jackpot':
+        print(f"🔒 铁律合规校验: [通过] 严禁改动原注任何数字 | 动态锁定单蓝 {result.get('locked_blue', 0):02d} | 单红球最高出现 <= 2 次")
+    else:
+        print("🔒 铁律合规校验: [通过] 严禁改动原注任何数字 | 蓝球去重通过 | 单红球最高出现 <= 2 次")
+    print('=' * 85)
+
+
+def cmd_audit_pool(args):
+    """Retrospective audit of candidate pool against actual draw."""
+    from collections import Counter
+    from tabulate import tabulate
+    from src import storage, features as feat_module, meihua
+
+    storage.init_db()
+    df = storage.get_all_draws()
+    if df.empty:
+        print('❌ 历史开奖数据库为空，无法进行复盘。')
+        return
+
+    # Determine target issue to audit
+    req_issue = getattr(args, 'issue', None)
+    if req_issue is None:
+        target_issue = str(storage.get_latest_issue())
+    else:
+        target_issue = str(req_issue).strip()
+
+    # Find actual draw row
+    draw_rows = df[df['issue'] == target_issue]
+    if draw_rows.empty:
+        print(f'❌ 数据库中未找到期号 {target_issue} 的真实开奖记录。请先运行 `python main.py update` 更新数据！')
+        return
+
+    draw_row = draw_rows.iloc[0]
+    actual_reds = feat_module.get_red_balls_from_row(draw_row)
+    actual_blue = int(draw_row['blue'])
+    draw_date = str(draw_row['draw_date'])
+
+    # Find pool file
+    pool_file = getattr(args, 'file', None)
+    pool_data = None
+
+    candidate_files = []
+    if pool_file:
+        candidate_files.append(pool_file)
+    candidate_files.extend([
+        os.path.join(config.REPORTS_DIR, f'pool_{target_issue}.json'),
+        os.path.join(config.DOCS_DATA_DIR, 'pool.json'),
+        os.path.join(config.REPORTS_DIR, 'latest_pool.json'),
+    ])
+
+    for cf in candidate_files:
+        if os.path.exists(cf):
+            try:
+                with open(cf, 'r', encoding='utf-8') as f:
+                    p = json.load(f)
+                if p.get('meta', {}).get('target_issue') == target_issue or pool_file:
+                    pool_data = p
+                    pool_file = cf
+                    break
+            except Exception:
+                continue
+
+    if pool_data is None:
+        print(f'❌ 未找到期号 {target_issue} 的候选池文件 (已尝试: {candidate_files})。')
+        return
+
+    print('=' * 85)
+    print(f"📊 双色球候选池实战复盘体检 (Pool Audit) | 期号: {target_issue} ({draw_date})")
+    print(f"🎯 当期开奖真实号码: {' '.join(f'{r:02d}' for r in actual_reds)} + {actual_blue:02d} (蓝球五行: {meihua.get_ball_wuxing(actual_blue)})")
+    print(f"📁 候选池源文件: {pool_file}")
+    print('=' * 85)
+
+    pools = pool_data.get('pools', {})
+
+    for mode_name in ['balanced', 'jackpot']:
+        mode_data = pools.get(mode_name)
+        if not mode_data:
+            print(f"\n⚠️ 模式 {mode_name} 无数据")
+            continue
+
+        if mode_name == 'balanced':
+            tickets = mode_data
+            mode_title = "稳健保底池 (balanced, 20 注)"
+        else:
+            if isinstance(mode_data, dict):
+                tickets = [t for b in mode_data.values() for t in b.get('tickets', [])]
+            else:
+                tickets = mode_data
+            mode_title = f"冲大奖分桶池 (jackpot, 5五行桶共 {len(tickets)} 注)"
+
+        # Calculate metrics
+        red_hits_list = []
+        blue_hits_list = []
+        prize_records = []
+        odd_even_counts = Counter()
+        blue_wuxing_counts = Counter()
+        blues_covered = set()
+
+        for t in tickets:
+            r_hits = len(set(t['reds']) & set(actual_reds))
+            b_hit = (int(t['blue']) == actual_blue)
+            red_hits_list.append(r_hits)
+            blue_hits_list.append(1 if b_hit else 0)
+
+            odd_cnt = sum(1 for r in t['reds'] if r % 2 == 1)
+            odd_even_counts[f"{odd_cnt}:{6 - odd_cnt}"] += 1
+
+            b_elem = meihua.get_ball_wuxing(t['blue'])
+            blue_wuxing_counts[b_elem] += 1
+            blues_covered.add(int(t['blue']))
+
+            # Check SSQ prize
+            prize_info = config.PRIZE_RULES.get((r_hits, 1 if b_hit else 0))
+            if prize_info:
+                prize_records.append({
+                    'rank': t.get('rank', '-'),
+                    'reds': t['reds'],
+                    'blue': t['blue'],
+                    'r_hits': r_hits,
+                    'b_hit': b_hit,
+                    'prize_desc': prize_info['desc'],
+                    'prize_amount': prize_info['prize'],
+                })
+
+        avg_red_hits = sum(red_hits_list) / len(red_hits_list) if red_hits_list else 0.0
+        blue_cov_pct = (len(blues_covered) / 16.0) * 100.0
+        blue_hit_count = sum(blue_hits_list)
+        blue_hit_rate = (blue_hit_count / len(tickets) * 100.0) if tickets else 0.0
+
+        print(f"\n【{mode_title}】")
+        print(f"  - 总候选注数: {len(tickets)} 注 | 覆盖独立蓝球: {len(blues_covered)} 个 ({blue_cov_pct:.1f}% 蓝球覆盖)")
+        print(f"  - 平均红球命中: {avg_red_hits:.2f} 个 (最高单注命中 {max(red_hits_list) if red_hits_list else 0} 红)")
+        print(f"  - 命中蓝球注数: {blue_hit_count} 注 (命中率 {blue_hit_rate:.1f}%)")
+
+        # Parity distribution
+        oe_str = ' | '.join(f"{k}: {v}注 ({v/len(tickets)*100:.1f}%)" for k, v in sorted(odd_even_counts.items()))
+        mainstream_cnt = sum(odd_even_counts[k] for k in ['3:3', '4:2', '2:4'] if k in odd_even_counts)
+        mainstream_pct = mainstream_cnt / len(tickets) * 100.0 if tickets else 0.0
+        print(f"  - 奇偶比分布: {oe_str} [主流形态占比: {mainstream_pct:.1f}%]")
+
+        # Blue Wuxing distribution
+        bw_str = ' | '.join(f"{k}: {v}注" for k, v in sorted(blue_wuxing_counts.items()))
+        print(f"  - 蓝球五行分布: {bw_str}")
+
+        # Winning tickets summary
+        if prize_records:
+            total_winnings = sum(p['prize_amount'] for p in prize_records)
+            print(f"  - 🎉 中奖情况: 共 {len(prize_records)} 注中奖，累计奖金 ¥{total_winnings}")
+            prize_table = []
+            for p in prize_records:
+                reds_str = ' '.join(f"{r:02d}" for r in p['reds'])
+                prize_table.append([
+                    f"#{p['rank']}",
+                    f"{reds_str} + {p['blue']:02d}",
+                    f"命中红{p['r_hits']} + 蓝{1 if p['b_hit'] else 0}",
+                    p['prize_desc'],
+                    f"¥{p['prize_amount']}"
+                ])
+            print(tabulate(prize_table, headers=['排名', '投注号码', '命中详情', '奖项', '奖金'], tablefmt='grid'))
+        else:
+            print("  - 中奖情况: 当期未命中五等奖及以上固定奖。")
+
     print('=' * 85)
 
 
@@ -475,6 +645,11 @@ def main():
     p_daily.add_argument('--count', type=int, default=5, help='推荐注数 (默认: 5)')
     p_daily.add_argument('--beta', type=float, default=config.GAME_THEORY_BETA, help='博弈论权重 (默认: 0.35)')
 
+    # audit-pool
+    p_audit = subparsers.add_parser('audit-pool', help='复盘核对候选池命中与分布情况')
+    p_audit.add_argument('--issue', type=str, default=None, help='要复盘核对的期号 (默认: 最新已开奖期号)')
+    p_audit.add_argument('--file', type=str, default=None, help='指定的候选池 JSON 文件路径 (默认自动查找)')
+
     # schedule
     subparsers.add_parser('schedule', help='启动每日定时调度任务')
 
@@ -492,6 +667,7 @@ def main():
         'meihua': cmd_meihua,
         'run-daily': cmd_run_daily,
         'schedule': cmd_schedule,
+        'audit-pool': cmd_audit_pool,
     }
     dispatch[args.command](args)
 

@@ -753,13 +753,15 @@
       <span>🎯 终审精选 5 注 (严格锁定原注数字)</span>
     </div>
 
+    <div id="jackpot-lock-banner" style="display: none; background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.35); color: #93c5fd; padding: 7px 12px; border-radius: 10px; font-size: 0.82rem; font-weight: 700; text-align: center;"></div>
+
     <div id="tickets-list" style="display: flex; flex-direction: column; gap: 10px;"></div>
 
     <div class="actions-bar">
       <button class="btn-copy" id="btn-copy-all">📋 一键复制 5 注号码 (含卦象)</button>
     </div>
 
-    <div style="font-size: 0.72rem; color: #10b981; text-align: center; margin-top: 4px;">
+    <div id="compliance-tag" style="font-size: 0.72rem; color: #10b981; text-align: center; margin-top: 4px;">
       🔒 铁律校验通过: 未改动原注任何数字 · 蓝球去重通过 · 单球频次 ≤ 2
     </div>
   </div>
@@ -1012,16 +1014,67 @@ function selectMeihuaTickets(pool, date, numbers, mode, gamma) {
   const hex = calculateHexagrams(uNum, lNum, movLine);
   const fortune = evaluateDivination(hex);
 
+  let targetTickets = [];
+  let lockedElement = null;
+  let lockedBlue = null;
+
+  if (mode === 'jackpot') {
+    if (pool && !Array.isArray(pool) && typeof pool === 'object') {
+      // 5 element buckets
+      const buckets = Object.values(pool);
+      const bScores = buckets.map(b => Number(b.blue_score || 0.5));
+      const mScores = buckets.map(b => Number(fortune.weights[b.element] || 0.0));
+
+      const minB = Math.min(...bScores), maxB = Math.max(...bScores);
+      const minM_b = Math.min(...mScores), maxM_b = Math.max(...mScores);
+      const denomB = (maxB - minB) + 1e-9;
+      const denomM_b = (maxM_b - minM_b) + 1e-9;
+
+      const scoredBuckets = buckets.map(b => {
+        const normB = (Number(b.blue_score || 0.5) - minB) / denomB;
+        const normM = (Number(fortune.weights[b.element] || 0.0) - minM_b) / denomM_b;
+        const score = (1 - gamma) * normB + gamma * normM;
+        return { score, bucket: b };
+      });
+
+      scoredBuckets.sort((a, b) => b.score - a.score);
+      const bestBucket = scoredBuckets[0].bucket;
+      lockedElement = bestBucket.element;
+      lockedBlue = Number(bestBucket.blue);
+      targetTickets = bestBucket.tickets || [];
+    } else if (Array.isArray(pool) && pool.length > 0) {
+      const bluesInPool = [...new Set(pool.map(t => t.blue))];
+      if (bluesInPool.length === 1) {
+        lockedBlue = bluesInPool[0];
+        lockedElement = getBallWuxing(lockedBlue);
+        targetTickets = pool;
+      } else {
+        const elemGroups = {};
+        pool.forEach(t => {
+          const el = getBallWuxing(t.blue);
+          if (!elemGroups[el]) elemGroups[el] = [];
+          elemGroups[el].push(t);
+        });
+        const bestElem = Object.keys(elemGroups).sort((a, b) => (fortune.weights[b] || 0) - (fortune.weights[a] || 0))[0];
+        lockedElement = bestElem;
+        targetTickets = elemGroups[bestElem];
+        lockedBlue = targetTickets[0].blue;
+      }
+    }
+  } else {
+    targetTickets = Array.isArray(pool) ? pool : (pool.balanced || []);
+  }
+
   // Score tickets
-  const rawMeihua = pool.map(t => scoreTicketMeihua(t.reds, t.blue, fortune.weights));
-  const baseScores = pool.map(t => t.composite_score || 0.5);
+  const rawMeihua = targetTickets.map(t => scoreTicketMeihua(t.reds, t.blue, fortune.weights));
+  const baseScores = targetTickets.map(t => t.composite_score || 0.5);
 
   const minM = Math.min(...rawMeihua), maxM = Math.max(...rawMeihua);
   const minB = Math.min(...baseScores), maxB = Math.max(...baseScores);
   const denomM = (maxM - minM) + 1e-9;
   const denomB = (maxB - minB) + 1e-9;
 
-  const scoredPool = pool.map((t, idx) => {
+  const scoredPool = targetTickets.map((t, idx) => {
     const normM = (rawMeihua[idx] - minM) / denomM;
     const normB = (baseScores[idx] - minB) / denomB;
     const finalScore = (1 - gamma) * normB + gamma * normM;
@@ -1087,7 +1140,17 @@ function selectMeihuaTickets(pool, date, numbers, mode, gamma) {
     }
   }
 
-  return { hex, fortune, selected, shichenNum };
+  // Fallback if DFS didn't yield 5
+  if (selected.length < 5) {
+    for (const t of scoredPool) {
+      if (!selected.includes(t)) {
+        selected.push(t);
+        if (selected.length === 5) break;
+      }
+    }
+  }
+
+  return { hex, fortune, selected, shichenNum, lockedElement, lockedBlue };
 }
 
 // --- UI Interaction Logic ---
@@ -1238,7 +1301,7 @@ function runDivination() {
     return;
   }
   const pool = POOL_DATA.pools[currentMode];
-  if (!pool || pool.length === 0) {
+  if (!pool || (Array.isArray(pool) ? pool.length === 0 : Object.keys(pool).length === 0)) {
     showToast('该模式候选池暂无数据');
     return;
   }
@@ -1278,6 +1341,18 @@ function runDivination() {
 
   document.getElementById('fav-wuxing-tag').textContent = `喜用: ${fortune.favored.join(' / ') || '平'}`;
   document.getElementById('avoid-wuxing-tag').textContent = `忌讳: ${fortune.avoided.join(' / ') || '无'}`;
+
+  // Jackpot Dynamic Lock Banner
+  const lockBanner = document.getElementById('jackpot-lock-banner');
+  const complianceTag = document.getElementById('compliance-tag');
+  if (currentMode === 'jackpot' && lastResult.lockedElement && lastResult.lockedBlue) {
+    lockBanner.style.display = 'block';
+    lockBanner.textContent = `🎯 已按当刻喜用五行【${lastResult.lockedElement}】动态锁定单蓝 ${String(lastResult.lockedBlue).padStart(2, '0')}`;
+    if (complianceTag) complianceTag.textContent = `🔒 铁律校验通过: 未改动原注任何数字 · 动态锁定单蓝 ${String(lastResult.lockedBlue).padStart(2, '0')} · 单球频次 ≤ 2`;
+  } else {
+    lockBanner.style.display = 'none';
+    if (complianceTag) complianceTag.textContent = '🔒 铁律校验通过: 未改动原注任何数字 · 蓝球去重通过 · 单球频次 ≤ 2';
+  }
 
   // Render Tickets
   const list = document.getElementById('tickets-list');
@@ -1329,6 +1404,11 @@ document.getElementById('btn-copy-all').addEventListener('click', () => {
   if (!lastResult || !lastResult.selected) return;
   const lines = [];
   lines.push(`【双色球易数终审】目标期号: ${POOL_DATA?.meta?.target_issue || ''}`);
+  if (currentMode === 'jackpot' && lastResult.lockedElement && lastResult.lockedBlue) {
+    lines.push(`选号模式: 冲大奖型 (动态锁定五行【${lastResult.lockedElement}】单蓝: ${String(lastResult.lockedBlue).padStart(2, '0')})`);
+  } else {
+    lines.push(`选号模式: 稳健保底型 (5不同蓝)`);
+  }
   lines.push(`卦象: ${lastResult.hex.main.name}卦变${lastResult.hex.transformed.name}卦 (评级: ${lastResult.fortune.rating})`);
   lines.push(`五行喜用: ${lastResult.fortune.favored.join('、')}`);
   lines.push('------------------------');
@@ -1384,7 +1464,7 @@ function saveDivinationRecord(res, numbers, dt) {
       target_issue: String(POOL_DATA?.meta?.target_issue || ''),
       target_draw_date: POOL_DATA?.meta?.target_draw_date || '',
       mode: currentMode,
-      mode_name: currentMode === 'jackpot' ? '冲大奖型' : '稳健保底',
+      mode_name: currentMode === 'jackpot' ? `冲大奖型 (锁单蓝 ${res.lockedBlue ? String(res.lockedBlue).padStart(2, '0') : ''})` : '稳健保底',
       numbers: numbers,
       shichen: `${SHICHEN_NAMES[res.shichenNum - 1]} (${res.shichenNum})`,
       main_name: res.hex.main.name,

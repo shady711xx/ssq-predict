@@ -14,8 +14,18 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config
 from src import features as feat_module
 from src import game_theory, model, storage
+from collections import Counter
 
 logger = logging.getLogger('ssq.predictor')
+
+# Hetu Wuxing mapping for Blue balls (01-16)
+HETU_BLUE_BUCKETS = {
+    '水': [1, 6, 11, 16],
+    '火': [2, 7, 12],
+    '木': [3, 8, 13],
+    '金': [4, 9, 14],
+    '土': [5, 10, 15],
+}
 
 
 def get_next_draw_dates(n: int = 1, from_date: Optional[datetime] = None) -> List[datetime]:
@@ -199,12 +209,18 @@ def check_past_predictions() -> List[Dict[str, Any]]:
 def export_frozen_candidate_pool(
     output_path: Optional[str] = None,
     backup_path: Optional[str] = None,
+    random_seed: Optional[int] = None,
 ) -> Dict[str, Any]:
-    """Export top-20 candidate pools for balanced and jackpot modes to JSON for mobile web app.
+    """Export top-20 candidate pool (balanced) and 5-element bucket pool (jackpot) to JSON.
     
-    Generates docs/data/pool.json and reports/latest_pool.json.
+    Balanced pool: 20 tickets strictly covering all 16 blues (1-16), mainstream parity >= 75%,
+                   single ball freq <= 5, overlap <= 3.
+    Jackpot pool: 5 Hetu Wuxing buckets x 8 tickets = 40 frozen tickets with single ball freq <= 3.
     """
     config.ensure_dirs()
+    if random_seed is not None:
+        np.random.seed(random_seed)
+
     if output_path is None:
         output_path = os.path.join(config.DOCS_DATA_DIR, 'pool.json')
     if backup_path is None:
@@ -222,35 +238,30 @@ def export_frozen_candidate_pool(
     target_issue = estimate_issue_number(target_date, latest_issue, latest_row['draw_date'])
     weekday_cn = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'][target_date.weekday()]
 
-    # Train model
+    # Train ensemble model
     ensemble = model.EnsembleModel()
     ensemble.fit(df)
 
     filter_obj = game_theory.AntiPopularityFilter(history_df=df)
     scorer_obj = game_theory.UniquenessScorer(history_df=df)
 
-    # 1. Balanced Pool (20 tickets)
-    # Generate high quality 20 tickets from 300+ candidates:
-    # - Cover at least 8-12 distinct blues (max 2 per blue)
-    # - Red ball max frequency <= 4 across 20 tickets (avg 3.6)
-    # - Red ball pairwise overlap <= 3 (relaxed to 4)
-    # First, sample 400 candidate combinations through game theory filter & scoring
+    # 1. Sample 1,500 valid candidate combinations uniformly across all 16 blues
     raw_candidates: List[Dict[str, Any]] = []
-    attempts = 1500
-    sorted_blues = sorted(ensemble.get_probabilities()['blue'].keys(),
-                          key=lambda b: ensemble.get_probabilities()['blue'][b], reverse=True)
+    target_candidates = 1500
+    attempts = 0
+    max_attempts = 15000
+
     red_nums = list(range(config.RED_BALL_MIN, config.RED_BALL_MAX + 1))
     red_probs = ensemble.get_probabilities()['red']
     red_weights = np.array([red_probs.get(n, 1.0 / 33.0) for n in red_nums], dtype=float)
     red_weights = np.maximum(red_weights, 1e-6)
     red_weights /= red_weights.sum()
 
-    for _ in range(attempts):
-        if len(raw_candidates) >= 400:
-            break
-        b_idx = len(raw_candidates) % min(10, len(sorted_blues))
-        b = sorted_blues[b_idx]
-        
+    while len(raw_candidates) < target_candidates and attempts < max_attempts:
+        attempts += 1
+        # Cycle through 1..16 so every blue gets equal representation (~94 candidates)
+        b = (len(raw_candidates) % 16) + 1
+
         avail_nums = red_nums.copy()
         avail_w = red_weights.copy()
         reds = []
@@ -266,17 +277,22 @@ def export_frozen_candidate_pool(
         if not is_pass:
             continue
 
-        uniq_res = scorer_obj.score(reds, b)
         model_s = ensemble.score_combination(reds, b)
-        u_s = uniq_res['uniqueness_score']
+        uniq_b = scorer_obj.score(reds, b, mode='balanced')
+        uniq_j = scorer_obj.score(reds, b, mode='jackpot')
         odd, even = feat_module.compute_odd_even_ratio(reds)
 
         raw_candidates.append({
             'reds': reds,
             'blue': b,
             'model_score': round(model_s, 4),
-            'uniqueness_score': round(u_s, 4),
-            'tags': uniq_res['tags'],
+            'u_score_balanced': round(uniq_b['uniqueness_score'], 4),
+            'tags_balanced': uniq_b['tags'],
+            'u_score_jackpot': round(uniq_j['uniqueness_score'], 4),
+            'tags_jackpot': uniq_j['tags'],
+            'odd_count': odd,
+            'even_count': even,
+            'sum_val': int(sum(reds)),
             'features': {
                 'sum_value': int(sum(reds)),
                 'odd_even_ratio': f'{odd}:{even}',
@@ -285,55 +301,117 @@ def export_frozen_candidate_pool(
             }
         })
 
-    # Normalize scores across candidates
+    # Normalize scores across candidates for both balanced and jackpot
     m_scores = [c['model_score'] for c in raw_candidates]
-    u_scores = [c['uniqueness_score'] for c in raw_candidates]
+    ub_scores = [c['u_score_balanced'] for c in raw_candidates]
+    uj_scores = [c['u_score_jackpot'] for c in raw_candidates]
+
     min_m, max_m = min(m_scores), max(m_scores)
-    min_u, max_u = min(u_scores), max(u_scores)
+    min_ub, max_ub = min(ub_scores), max(ub_scores)
+    min_uj, max_uj = min(uj_scores), max(uj_scores)
+
     denom_m = (max_m - min_m) + 1e-9
-    denom_u = (max_u - min_u) + 1e-9
+    denom_ub = (max_ub - min_ub) + 1e-9
+    denom_uj = (max_uj - min_uj) + 1e-9
 
     for c in raw_candidates:
         norm_m = (c['model_score'] - min_m) / denom_m
-        norm_u = (c['uniqueness_score'] - min_u) / denom_u
-        c['final_score'] = round(float((1.0 - config.GAME_THEORY_BETA) * norm_m + config.GAME_THEORY_BETA * norm_u), 4)
+        norm_ub = (c['u_score_balanced'] - min_ub) / denom_ub
+        norm_uj = (c['u_score_jackpot'] - min_uj) / denom_uj
+        c['score_balanced'] = round(float((1.0 - config.GAME_THEORY_BETA) * norm_m + config.GAME_THEORY_BETA * norm_ub), 4)
+        c['score_jackpot'] = round(float((1.0 - config.GAME_THEORY_BETA) * norm_m + config.GAME_THEORY_BETA * norm_uj), 4)
 
-    raw_candidates.sort(key=lambda x: x['final_score'], reverse=True)
+    # -------------------------------------------------------------
+    # 2. Balanced 20-ticket selection (16-blue full coverage guarantee)
+    # -------------------------------------------------------------
+    cands_by_blue = {b: [c for c in raw_candidates if c['blue'] == b] for b in range(1, 17)}
+    for b in range(1, 17):
+        cands_by_blue[b].sort(key=lambda x: x['score_balanced'], reverse=True)
 
-    # 1. Balanced 20-ticket selection:
-    # max 2 per blue, max 4 per red ball, max overlap <= 3 (relaxed to 4)
+    sorted_blues = sorted(range(1, 17), key=lambda b: cands_by_blue[b][0]['score_balanced'] if cands_by_blue[b] else 0, reverse=True)
+
     balanced_selected: List[Dict[str, Any]] = []
-    for max_ov in [3, 4, 6]:
-        for max_red_f in [4, 5, 8]:
-            for max_blue_f in [2, 3, 5]:
-                balanced_selected = []
-                blue_counts: Dict[int, int] = {}
-                red_counts: Dict[int, int] = {}
-                for c in raw_candidates:
-                    if blue_counts.get(c['blue'], 0) >= max_blue_f:
-                        continue
-                    if any(red_counts.get(r, 0) >= max_red_f for r in c['reds']):
-                        continue
-                    if any(len(set(c['reds']) & set(prev['reds'])) > max_ov for prev in balanced_selected):
-                        continue
+    for max_ov in [3, 4, 5]:
+        for max_red_f in [4, 5]:
+            for enforce_parity in [True, False]:
+                selected: List[Dict[str, Any]] = []
+                red_counts: Counter = Counter()
+                blue_counts: Counter = Counter()
 
-                    balanced_selected.append(c)
-                    blue_counts[c['blue']] = blue_counts.get(c['blue'], 0) + 1
-                    for r in c['reds']:
-                        red_counts[r] = red_counts.get(r, 0) + 1
-
-                    if len(balanced_selected) == 20:
+                # Phase 1: Pick 1 best ticket for each of the 16 blue balls
+                success_phase1 = True
+                for b in sorted_blues:
+                    found = False
+                    for c in cands_by_blue[b]:
+                        if enforce_parity and c['odd_count'] not in (2, 3, 4) and sum(1 for x in selected if x['odd_count'] in (2, 3, 4)) < 12:
+                            continue
+                        if any(red_counts[r] >= max_red_f for r in c['reds']):
+                            continue
+                        if any(len(set(c['reds']) & set(prev['reds'])) > max_ov for prev in selected):
+                            continue
+                        selected.append(c)
+                        blue_counts[b] += 1
+                        for r in c['reds']:
+                            red_counts[r] += 1
+                        found = True
                         break
-                if len(balanced_selected) == 20:
-                    break
+                    if not found:
+                        for c in cands_by_blue[b]:
+                            if any(red_counts[r] >= max_red_f for r in c['reds']):
+                                continue
+                            if any(len(set(c['reds']) & set(prev['reds'])) > max_ov for prev in selected):
+                                continue
+                            selected.append(c)
+                            blue_counts[b] += 1
+                            for r in c['reds']:
+                                red_counts[r] += 1
+                            found = True
+                            break
+                    if not found:
+                        success_phase1 = False
+                        break
+
+                if not success_phase1 or len(selected) != 16:
+                    continue
+
+                # Phase 2: Pick 4 remaining tickets from top candidates (blue_counts < 2)
+                sorted_all_b = sorted(raw_candidates, key=lambda x: x['score_balanced'], reverse=True)
+                for c in sorted_all_b:
+                    if len(selected) == 20:
+                        break
+                    if blue_counts[c['blue']] >= 2:
+                        continue
+                    if any(red_counts[r] >= max_red_f for r in c['reds']):
+                        continue
+                    if any(len(set(c['reds']) & set(prev['reds'])) > max_ov for prev in selected):
+                        continue
+                    if enforce_parity and c['odd_count'] not in (2, 3, 4):
+                        mainstream_count = sum(1 for x in selected if x['odd_count'] in (2, 3, 4))
+                        if mainstream_count < 15 and (20 - len(selected) <= 15 - mainstream_count):
+                            continue
+
+                    selected.append(c)
+                    blue_counts[c['blue']] += 1
+                    for r in c['reds']:
+                        red_counts[r] += 1
+
+                if len(selected) == 20:
+                    mainstream_pct = sum(1 for x in selected if x['odd_count'] in (2, 3, 4)) / 20.0
+                    unique_blues = len(set(x['blue'] for x in selected))
+                    if unique_blues == 16 and (mainstream_pct >= 0.75 or not enforce_parity):
+                        balanced_selected = selected
+                        break
             if len(balanced_selected) == 20:
                 break
         if len(balanced_selected) == 20:
             break
 
-    # 2. Jackpot 20-ticket selection:
-    # Lock top composite blue, max 4 per red ball, max overlap <= 3 (relaxed to 4)
-    # Find locked blue
+    # Sort balanced Top 20 by score_balanced descending
+    balanced_selected.sort(key=lambda x: x['score_balanced'], reverse=True)
+
+    # -------------------------------------------------------------
+    # 3. Jackpot 5-Element Blue Buckets
+    # -------------------------------------------------------------
     blue_model_probs = [ensemble.get_probabilities()['blue'].get(b, 1.0 / 16.0) for b in range(1, 17)]
     blue_uniqueness = []
     for b in range(1, 17):
@@ -349,62 +427,83 @@ def export_frozen_candidate_pool(
     denom_bm = (max_bm - min_bm) + 1e-9
     denom_bu = (max_bu - min_bu) + 1e-9
     blue_composite = {
-        b: (1.0 - config.GAME_THEORY_BETA) * ((blue_model_probs[b - 1] - min_bm) / denom_bm) +
-           config.GAME_THEORY_BETA * ((blue_uniqueness[b - 1] - min_bu) / denom_bu)
+        b: round(float((1.0 - config.GAME_THEORY_BETA) * ((blue_model_probs[b - 1] - min_bm) / denom_bm) +
+                       config.GAME_THEORY_BETA * ((blue_uniqueness[b - 1] - min_bu) / denom_bu)), 4)
         for b in range(1, 17)
     }
-    locked_blue = max(blue_composite.keys(), key=lambda b: blue_composite[b])
 
-    jackpot_cands = [c for c in raw_candidates if c['blue'] == locked_blue]
-    if len(jackpot_cands) < 20:
-        for c in raw_candidates:
-            if c['blue'] != locked_blue and len(jackpot_cands) < 200:
-                c_copy = dict(c)
-                c_copy['blue'] = locked_blue
-                jackpot_cands.append(c_copy)
-
-    jackpot_selected: List[Dict[str, Any]] = []
-    for max_ov in [2, 3, 4, 6]:
-        for max_red_f in [4, 5, 8]:
-            jackpot_selected = []
-            red_counts: Dict[int, int] = {}
-            for c in jackpot_cands:
-                if any(red_counts.get(r, 0) >= max_red_f for r in c['reds']):
-                    continue
-                if any(len(set(c['reds']) & set(prev['reds'])) > max_ov for prev in jackpot_selected):
-                    continue
-
-                jackpot_selected.append(c)
-                for r in c['reds']:
-                    red_counts[r] = red_counts.get(r, 0) + 1
-
-                if len(jackpot_selected) == 20:
-                    break
-            if len(jackpot_selected) == 20:
-                break
-        if len(jackpot_selected) == 20:
-            break
-
-    # Format pool items
-    def format_pool_ticket(rank: int, item: Dict[str, Any]) -> Dict[str, Any]:
+    def format_pool_ticket(rank: int, item: Dict[str, Any], mode: str = 'balanced') -> Dict[str, Any]:
         reds = sorted(item['reds'])
         odd, even = feat_module.compute_odd_even_ratio(reds)
+        u_s = item['u_score_balanced'] if mode == 'balanced' else item['u_score_jackpot']
+        c_s = item['score_balanced'] if mode == 'balanced' else item['score_jackpot']
+        t_tags = item['tags_balanced'] if mode == 'balanced' else item['tags_jackpot']
         return {
             'rank': rank,
             'reds': reds,
             'blue': int(item['blue']),
             'model_score': round(float(item.get('model_score', 0.5)), 4),
-            'uniqueness_score': round(float(item.get('uniqueness_score', 0.5)), 4),
-            'composite_score': round(float(item.get('final_score', item.get('model_score', 0.5))), 4),
+            'uniqueness_score': round(float(u_s), 4),
+            'composite_score': round(float(c_s), 4),
             'sum_val': int(sum(reds)),
             'odd_even': f"{odd}:{even}",
             'ac_val': int(feat_module.compute_ac_value(reds)),
             'consecutive': int(feat_module.compute_consecutive_count(reds)),
-            'tags': item.get('tags', []),
+            'tags': t_tags,
         }
 
-    balanced_pool = [format_pool_ticket(i + 1, item) for i, item in enumerate(balanced_selected[:20])]
-    jackpot_pool = [format_pool_ticket(i + 1, item) for i, item in enumerate(jackpot_selected[:20])]
+    jackpot_pool: Dict[str, Any] = {}
+    for elem, elem_blues in HETU_BLUE_BUCKETS.items():
+        # Representative blue for this element
+        rep_blue = max(elem_blues, key=lambda b: blue_composite[b])
+        rep_blue_score = blue_composite[rep_blue]
+
+        blue_cands = [c for c in raw_candidates if c['blue'] == rep_blue]
+        blue_cands.sort(key=lambda x: x['score_jackpot'], reverse=True)
+
+        bucket_selected: List[Dict[str, Any]] = []
+        for max_ov in [2, 3, 4, 6]:
+            for max_red_f in [3, 4]:
+                bucket_selected = []
+                red_counts = Counter()
+                for c in blue_cands:
+                    if any(red_counts[r] >= max_red_f for r in c['reds']):
+                        continue
+                    if any(len(set(c['reds']) & set(prev['reds'])) > max_ov for prev in bucket_selected):
+                        continue
+                    bucket_selected.append(c)
+                    for r in c['reds']:
+                        red_counts[r] += 1
+                    if len(bucket_selected) == 8:
+                        break
+                if len(bucket_selected) == 8:
+                    break
+            if len(bucket_selected) == 8:
+                break
+
+        if len(bucket_selected) < 8:
+            for c in blue_cands:
+                if c not in bucket_selected:
+                    bucket_selected.append(c)
+                    if len(bucket_selected) == 8:
+                        break
+
+        bucket_tickets = [
+            format_pool_ticket(i + 1, item, mode='jackpot')
+            for i, item in enumerate(bucket_selected[:8])
+        ]
+
+        jackpot_pool[elem] = {
+            'element': elem,
+            'blue': int(rep_blue),
+            'blue_score': rep_blue_score,
+            'tickets': bucket_tickets,
+        }
+
+    balanced_pool = [
+        format_pool_ticket(i + 1, item, mode='balanced')
+        for i, item in enumerate(balanced_selected[:20])
+    ]
 
     # Extract recent 10 draws for client-side auto-reconciliation
     recent_df = df.tail(10).iloc[::-1]
@@ -417,6 +516,7 @@ def export_frozen_candidate_pool(
             'blue': int(r['blue']),
         })
 
+    # Note: redundant meta.recent_draws is removed, keeping only top-level recent_draws
     pool_data = {
         'meta': {
             'generated_at': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -428,7 +528,6 @@ def export_frozen_candidate_pool(
                 'reds': feat_module.get_red_balls_from_row(latest_row),
                 'blue': int(latest_row['blue']),
             },
-            'recent_draws': recent_draws,
             'ev_timing': None,
             'consensus': None,
         },
@@ -439,11 +538,14 @@ def export_frozen_candidate_pool(
         }
     }
 
-    # Save to docs/data/pool.json and reports/latest_pool.json
-    for p in [output_path, backup_path]:
-        os.makedirs(os.path.dirname(p), exist_ok=True)
-        with open(p, 'w', encoding='utf-8') as f:
-            json.dump(pool_data, f, ensure_ascii=False, indent=2)
-        logger.info(f'Exported candidate pool to {p}')
+    # Save to docs/data/pool.json, reports/latest_pool.json, and archive pool_{target_issue}.json
+    archive_path = os.path.join(config.REPORTS_DIR, f'pool_{target_issue}.json')
+    save_paths = [output_path, backup_path, archive_path]
+    for p in set(save_paths):
+        if p:
+            os.makedirs(os.path.dirname(p), exist_ok=True)
+            with open(p, 'w', encoding='utf-8') as f:
+                json.dump(pool_data, f, ensure_ascii=False, indent=2)
+            logger.info(f'Exported candidate pool to {p}')
 
     return pool_data

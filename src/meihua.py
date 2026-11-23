@@ -359,7 +359,7 @@ def score_ticket_meihua(reds: List[int], blue: int, wuxing_weights: Dict[str, fl
 
 
 def select_meihua_tickets(
-    candidate_pool: List[Dict[str, Any]],
+    candidate_pool: Any,
     purchase_dt: Optional[datetime] = None,
     numbers: Optional[List[int]] = None,
     mode: str = 'balanced',
@@ -367,21 +367,19 @@ def select_meihua_tickets(
     target_count: int = 5,
     max_ball_freq: int = 2,
 ) -> Dict[str, Any]:
-    """Perform non-destructive Meihua final audit on Top-20 candidate pool.
+    """Perform non-destructive Meihua final audit on candidate pool.
     
     CRITICAL INVARIANT:
     Tickets in candidate_pool are NEVER modified (no balls changed, swapped or replaced).
     Only re-ranked and selected via constrained greedy pass.
     
+    Modes:
+    - balanced: candidate_pool is a list of 20 tickets. Enforces distinct blues and max_ball_freq <= 2.
+    - jackpot: candidate_pool is a dict of 5 Wuxing buckets (or list). Dynamically locks 1 best bucket
+               based on 'blue_base_score + meihua_wuxing_score', then selects 5 tickets from its 8 tickets.
+    
     Returns:
-        {
-            'hexagram_info': dict,
-            'fortune': dict,
-            'selected_tickets': list of 5 tickets,
-            'fallback_relaxed': bool,
-            'mode': mode,
-            'gamma': gamma
-        }
+        dict containing hexagram_info, fortune, selected_tickets, locked_element, locked_blue, etc.
     """
     if purchase_dt is None:
         purchase_dt = datetime.now()
@@ -399,50 +397,105 @@ def select_meihua_tickets(
     fortune = evaluate_divination_fortune(hex_info)
     wuxing_weights = fortune['wuxing_weights']
 
-    # Score each ticket in pool
+    locked_element: Optional[str] = None
+    locked_blue: Optional[int] = None
+    target_pool: List[Dict[str, Any]] = []
+
+    # Handle jackpot 5-element bucket dynamic locking
+    if mode == 'jackpot':
+        if isinstance(candidate_pool, dict):
+            # candidate_pool has 5 element buckets: {"水": {...}, "火": {...}, ...}
+            buckets = list(candidate_pool.values())
+            b_scores = [float(b.get('blue_score', 0.5)) for b in buckets]
+            m_scores = [float(wuxing_weights.get(b.get('element', ''), 0.0)) for b in buckets]
+
+            min_b, max_b = min(b_scores), max(b_scores)
+            min_m, max_m = min(m_scores), max(m_scores)
+            denom_b = (max_b - min_b) + 1e-9
+            denom_m = (max_m - min_m) + 1e-9
+
+            scored_buckets = []
+            for b in buckets:
+                elem = b.get('element', '')
+                norm_b = (float(b.get('blue_score', 0.5)) - min_b) / denom_b
+                norm_m = (float(wuxing_weights.get(elem, 0.0)) - min_m) / denom_m
+                bucket_composite = (1.0 - gamma) * norm_b + gamma * norm_m
+                scored_buckets.append((bucket_composite, b))
+
+            # Sort buckets by composite score descending
+            scored_buckets.sort(key=lambda x: x[0], reverse=True)
+            best_bucket = scored_buckets[0][1]
+            locked_element = best_bucket.get('element')
+            locked_blue = int(best_bucket.get('blue'))
+            target_pool = best_bucket.get('tickets', [])
+        elif isinstance(candidate_pool, list) and candidate_pool:
+            # Fallback for flat list: check if multiple blues exist
+            blues_in_pool = list(set(t['blue'] for t in candidate_pool))
+            if len(blues_in_pool) == 1:
+                locked_blue = blues_in_pool[0]
+                locked_element = get_ball_wuxing(locked_blue)
+                target_pool = candidate_pool
+            else:
+                # Group by wuxing element
+                elem_groups: Dict[str, List[Dict[str, Any]]] = {}
+                for t in candidate_pool:
+                    elem = get_ball_wuxing(t['blue'])
+                    elem_groups.setdefault(elem, []).append(t)
+
+                best_elem = max(elem_groups.keys(), key=lambda e: wuxing_weights.get(e, 0.0))
+                locked_element = best_elem
+                target_pool = elem_groups[best_elem]
+                locked_blue = target_pool[0]['blue']
+        else:
+            target_pool = []
+    else:
+        # Balanced mode: flat list of 20 tickets
+        if isinstance(candidate_pool, dict):
+            target_pool = candidate_pool.get('balanced', [])
+        else:
+            target_pool = candidate_pool
+
+    # Score each ticket in target pool
     scored_pool: List[Dict[str, Any]] = []
     raw_meihua_scores = []
     base_scores = []
 
-    for item in candidate_pool:
+    for item in target_pool:
         raw_m = score_ticket_meihua(item['reds'], item['blue'], wuxing_weights)
         raw_meihua_scores.append(raw_m)
         base_s = float(item.get('composite_score', item.get('final_score', item.get('model_score', 0.5))))
         base_scores.append(base_s)
 
-    # Normalize within pool
-    min_m, max_m = min(raw_meihua_scores), max(raw_meihua_scores)
-    min_b, max_b = min(base_scores), max(base_scores)
-    denom_m = (max_m - min_m) + 1e-9
-    denom_b = (max_b - min_b) + 1e-9
+    if raw_meihua_scores:
+        min_m, max_m = min(raw_meihua_scores), max(raw_meihua_scores)
+        min_b, max_b = min(base_scores), max(base_scores)
+        denom_m = (max_m - min_m) + 1e-9
+        denom_b = (max_b - min_b) + 1e-9
 
-    for idx, item in enumerate(candidate_pool):
-        norm_meihua = (raw_meihua_scores[idx] - min_m) / denom_m
-        norm_base = (base_scores[idx] - min_b) / denom_b
-        final_score = (1.0 - gamma) * norm_base + gamma * norm_meihua
+        for idx, item in enumerate(target_pool):
+            norm_meihua = (raw_meihua_scores[idx] - min_m) / denom_m
+            norm_base = (base_scores[idx] - min_b) / denom_b
+            final_score = (1.0 - gamma) * norm_base + gamma * norm_meihua
 
-        # Find matching favored balls for display
-        favored_set = set(fortune['favored_elements'])
-        matched_reds = [r for r in item['reds'] if get_ball_wuxing(r) in favored_set]
-        matched_blue = get_ball_wuxing(item['blue']) in favored_set
+            favored_set = set(fortune['favored_elements'])
+            matched_reds = [r for r in item['reds'] if get_ball_wuxing(r) in favored_set]
+            matched_blue = get_ball_wuxing(item['blue']) in favored_set
 
-        ticket_copy = dict(item)
-        ticket_copy['original_rank'] = item.get('rank', idx + 1)
-        ticket_copy['meihua_score'] = round(float(norm_meihua), 4)
-        ticket_copy['norm_composite'] = round(float(norm_base), 4)
-        ticket_copy['final_meihua_score'] = round(float(final_score), 4)
-        ticket_copy['matched_favored_reds'] = matched_reds
-        ticket_copy['matched_favored_blue'] = matched_blue
-        ticket_copy['red_wuxing'] = [get_ball_wuxing(r) for r in item['reds']]
-        ticket_copy['blue_wuxing'] = get_ball_wuxing(item['blue'])
-        scored_pool.append(ticket_copy)
+            ticket_copy = dict(item)
+            ticket_copy['original_rank'] = item.get('rank', idx + 1)
+            ticket_copy['meihua_score'] = round(float(norm_meihua), 4)
+            ticket_copy['norm_composite'] = round(float(norm_base), 4)
+            ticket_copy['final_meihua_score'] = round(float(final_score), 4)
+            ticket_copy['matched_favored_reds'] = matched_reds
+            ticket_copy['matched_favored_blue'] = matched_blue
+            ticket_copy['red_wuxing'] = [get_ball_wuxing(r) for r in item['reds']]
+            ticket_copy['blue_wuxing'] = get_ball_wuxing(item['blue'])
+            scored_pool.append(ticket_copy)
 
     # Re-rank strictly by final_meihua_score descending
     scored_pool.sort(key=lambda x: x['final_meihua_score'], reverse=True)
 
-    # Constrained optimal selection using pruned DFS across 20 tickets
-    # Solves in < 1 millisecond and guarantees the globally optimal 5-ticket set
-    # satisfying distinct blue balls and max_ball_freq <= 2.
+    # Constrained optimal selection using pruned DFS across tickets
     selected: List[Dict[str, Any]] = []
     fallback_relaxed = False
 
@@ -465,7 +518,6 @@ def select_meihua_tickets(
                 return
 
             t = scored_pool[idx]
-            # Check blue ball uniqueness in balanced mode
             can_add = True
             if mode == 'balanced' and t['blue'] in used_blues:
                 can_add = False
@@ -517,4 +569,6 @@ def select_meihua_tickets(
         'selected_tickets': selected,
         'ranked_pool': scored_pool,
         'fallback_relaxed': fallback_relaxed,
+        'locked_element': locked_element,
+        'locked_blue': locked_blue,
     }

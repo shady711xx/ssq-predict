@@ -63,6 +63,40 @@ class TestAntiPopularityFilter:
         assert not is_pass
         assert any('同尾号' in r for r in reasons)
 
+    def test_consecutive_3_intercept(self):
+        """Verify 3 consecutive natural numbers are intercepted by hard filter."""
+        f = AntiPopularityFilter(history_df=pd.DataFrame())
+        is_pass, reasons = f.is_valid([13, 14, 15, 20, 25, 30], 8)
+        assert not is_pass
+        assert any('包含3连号' in r for r in reasons)
+
+    def test_extreme_all_even_intercept(self):
+        """Verify 0:6 all-even combinations are intercepted."""
+        f = AntiPopularityFilter(history_df=pd.DataFrame())
+        is_pass, reasons = f.is_valid([2, 4, 8, 12, 20, 26], 8)
+        assert not is_pass
+        assert any('全偶数' in r for r in reasons)
+
+    def test_extreme_all_odd_intercept(self):
+        """Verify 6:0 all-odd combinations are intercepted."""
+        f = AntiPopularityFilter(history_df=pd.DataFrame())
+        is_pass, reasons = f.is_valid([1, 5, 9, 17, 23, 29], 8)
+        assert not is_pass
+        assert any('全奇数' in r for r in reasons)
+
+    def test_extreme_sum_intercept(self):
+        """Verify sum < 70 or sum > 145 are intercepted."""
+        f = AntiPopularityFilter(history_df=pd.DataFrame())
+        # Sum = 1+2+4+5+7+8 = 27 < 70
+        is_pass_low, reasons_low = f.is_valid([1, 2, 4, 5, 7, 8], 8)
+        assert not is_pass_low
+        assert any('极端低和值' in r for r in reasons_low)
+
+        # Sum = 24+26+28+30+31+33 = 172 > 145
+        is_pass_high, reasons_high = f.is_valid([24, 26, 28, 30, 31, 33], 8)
+        assert not is_pass_high
+        assert any('极端高和值' in r for r in reasons_high)
+
     def test_valid_anti_popular_ticket_passes(self):
         """Verify high-quality anti-popular ticket passes clean."""
         f = AntiPopularityFilter(history_df=pd.DataFrame())
@@ -91,6 +125,45 @@ class TestUniquenessScorer:
         scorer = UniquenessScorer(history_df=pd.DataFrame())
         res = scorer.score([1, 10, 14, 15, 16, 32], 2)
         assert any('镜像号' in t for t in res['tags']) or any('3连号' in t for t in res['tags'])
+
+    def test_avoided_4_bonus_capping(self):
+        """Verify avoided 4 numbers (04, 14, 24) bonus is capped and does not stack linearly."""
+        scorer = UniquenessScorer(history_df=pd.DataFrame())
+        # Ticket with one 4: [4, 11, 17, 23, 30, 32]
+        res_one = scorer.score([4, 11, 17, 23, 30, 32], 2)
+        # Ticket with two 4s: [4, 14, 17, 23, 30, 32]
+        res_two = scorer.score([4, 14, 17, 23, 30, 32], 2)
+
+        # Cultural score should be identical (capped at 0.10)
+        assert res_one['breakdown']['cultural_bias'] == res_two['breakdown']['cultural_bias']
+
+    def test_mode_aware_blue_scoring(self):
+        """Verify balanced mode weakens cultural blue penalty to 30%, while jackpot mode applies full penalty."""
+        scorer = UniquenessScorer(history_df=pd.DataFrame())
+        reds = [5, 11, 17, 23, 28, 32]
+
+        # Popular blue 8
+        score_bal_pop = scorer.score(reds, 8, mode='balanced')['breakdown']['cultural_bias']
+        score_jpt_pop = scorer.score(reds, 8, mode='jackpot')['breakdown']['cultural_bias']
+
+        # In balanced mode, penalty is 30% of original, so score is significantly higher than jackpot
+        assert score_bal_pop > score_jpt_pop
+
+    def test_parity_balance_soft_scoring(self):
+        """Verify 3:3 receives highest bonus, 2:4/4:2 moderate bonus, and 1:5/5:1 penalty."""
+        scorer = UniquenessScorer(history_df=pd.DataFrame())
+
+        # 3:3 (3 odd, 3 even)
+        res_33 = scorer.score([3, 5, 7, 10, 16, 22], 2)
+        # 4:2 (4 odd, 2 even)
+        res_42 = scorer.score([3, 5, 7, 9, 16, 22], 2)
+        # 1:5 (1 odd, 5 even)
+        res_15 = scorer.score([3, 6, 8, 10, 16, 22], 2)
+
+        assert res_33['breakdown']['parity_balance'] > res_42['breakdown']['parity_balance']
+        assert res_42['breakdown']['parity_balance'] > res_15['breakdown']['parity_balance']
+        assert '奇偶均衡3:3' in res_33['tags']
+        assert any('奇偶偏斜' in t for t in res_15['tags'])
 
     def test_history_recent_overlap_penalty(self):
         """Verify overlap >= 4 with previous draw receives penalty."""

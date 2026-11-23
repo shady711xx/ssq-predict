@@ -333,6 +333,69 @@ def test_python_js_vector_consistency():
     assert weights["金"] >= 0.8
     assert weights["火"] <= -0.9
 
+def test_select_meihua_tickets_jackpot_5_buckets_dynamic_locking():
+    """测试 5 五行蓝球桶在 jackpot 模式下的动态锁定与约束"""
+    # 构造 5 个河图五行桶，每个桶 8 注
+    buckets = {}
+    elements = [
+        ('水', 11, 0.60),
+        ('火', 7, 0.70),
+        ('木', 8, 0.50),
+        ('金', 4, 0.65),
+        ('土', 10, 0.55),
+    ]
+    for elem, b_val, b_score in elements:
+        tickets = []
+        for i in range(8):
+            reds = [
+                (i * 2 + 1) % 33 + 1,
+                (i * 2 + 5) % 33 + 1,
+                (i * 2 + 11) % 33 + 1,
+                (i * 2 + 17) % 33 + 1,
+                (i * 2 + 23) % 33 + 1,
+                (i * 2 + 27) % 33 + 1,
+            ]
+            reds = sorted(list(set(reds)))
+            while len(reds) < 6:
+                reds.append((reds[-1] % 33) + 1)
+                reds = sorted(list(set(reds)))
+            tickets.append({
+                'rank': i + 1,
+                'reds': reds,
+                'blue': b_val,
+                'composite_score': 0.85 - i * 0.03,
+            })
+        buckets[elem] = {
+            'element': elem,
+            'blue': b_val,
+            'blue_score': b_score,
+            'tickets': tickets,
+        }
+
+    # 测试巳时 (10:00) 报数 [3, 8] -> 体土用火 (火生土为印星, 权重最高)
+    dt = datetime(2026, 11, 23, 10, 0)
+    res = select_meihua_tickets(
+        candidate_pool=buckets,
+        purchase_dt=dt,
+        numbers=[3, 8],
+        mode="jackpot",
+        gamma=0.30,
+        target_count=5,
+        max_ball_freq=2,
+    )
+
+    assert res['locked_element'] in ('火', '土'), f"喜用为火/土，锁定了 {res['locked_element']}"
+    assert res['locked_blue'] == buckets[res['locked_element']]['blue']
+    assert len(res['selected_tickets']) == 5
+    for t in res['selected_tickets']:
+        assert t['blue'] == res['locked_blue']
+
+    # 频次检查
+    all_reds = [r for t in res['selected_tickets'] for r in t['reds']]
+    counts = Counter(all_reds)
+    assert max(counts.values()) <= 2
+
+
 def test_regression_counter_leak_fortune():
     """
     回归测试：修复主用泄气且变用回头克误判为平卦的 Bug
