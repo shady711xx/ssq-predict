@@ -544,6 +544,16 @@ def export_frozen_candidate_pool(
         for i, item in enumerate(balanced_selected[:20])
     ]
 
+    # Baseline validation before export
+    from src.meihua import validate_selected_tickets
+    val_b = validate_selected_tickets(balanced_pool, mode='balanced', expected_count=20, max_ball_freq=5, max_pairwise_overlap=5)
+    if not val_b['is_baseline_valid']:
+        raise ValueError(f"Balanced candidate pool failed baseline validation: {val_b['baseline_issues']}")
+    for elem, bdata in jackpot_pool.items():
+        val_j = validate_selected_tickets(bdata['tickets'], mode='jackpot', expected_count=8, max_ball_freq=4, max_pairwise_overlap=5)
+        if not val_j['is_baseline_valid']:
+            raise ValueError(f"Jackpot bucket {elem} failed baseline validation: {val_j['baseline_issues']}")
+
     # Extract recent 10 draws for client-side auto-reconciliation
     recent_df = df.tail(10).iloc[::-1]
     recent_draws = []

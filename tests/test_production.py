@@ -506,3 +506,137 @@ class TestJackpotBlueReplacementRescoring:
             # Verify model score matches actual score_combination with the new blue
             expected_m = round(model_stat.score_combination(c['reds'], locked_blue), 4)
             assert c['model_score'] == expected_m
+
+
+class TestProductionRobustnessBoundary:
+    """Boundary and robustness test suite."""
+
+    def test_candidate_pool_less_than_target_count(self):
+        """1. When candidate pool has fewer tickets than target_count (e.g., 3 < 5),
+        system must gracefully fallback, return all 3 tickets, set constraints_relaxed=True,
+        and pass baseline validation (no duplicates, legal range).
+        """
+        from datetime import datetime
+        from src.meihua import select_meihua_tickets
+
+        small_pool = [
+            {'rank': 1, 'reds': [1, 2, 3, 4, 5, 6], 'blue': 1, 'composite_score': 0.95},
+            {'rank': 2, 'reds': [7, 8, 9, 10, 11, 12], 'blue': 2, 'composite_score': 0.90},
+            {'rank': 3, 'reds': [13, 14, 15, 16, 17, 18], 'blue': 3, 'composite_score': 0.85},
+        ]
+        res = select_meihua_tickets(
+            small_pool,
+            purchase_dt=datetime(2026, 11, 23, 10, 0),
+            numbers=[3, 8],
+            mode='balanced',
+            target_count=5,
+        )
+
+        assert len(res['selected_tickets']) == 3
+        assert res['constraints_relaxed'] is True
+        assert "不足" in res['relaxation_reason']
+        val = res['validation']
+        assert val['is_baseline_valid'] is True
+        assert val['tickets_count'] == 3
+        for t in res['selected_tickets']:
+            assert len(t['reds']) == 6
+            assert all(1 <= r <= 33 for r in t['reds'])
+            assert 1 <= t['blue'] <= 16
+
+    def test_extreme_high_overlap_pool_triggers_degradation(self):
+        """2. Construct extreme candidate pool where all tickets share 5 of 6 red balls.
+        Verify that DFS relaxes tiers down to fallback, constraints_relaxed=True,
+        relaxation_reason is non-empty, and baseline hard validation strictly passes.
+        """
+        from datetime import datetime
+        from src.meihua import select_meihua_tickets
+
+        # 10 tickets, each sharing [1, 2, 3, 4, 5], only 6th ball differs
+        # This makes overlap <= 1, 2, 3 impossible, and ball frequencies of [1..5] will exceed 2
+        extreme_pool = [
+            {
+                'rank': i + 1,
+                'reds': [1, 2, 3, 4, 5, 6 + i],
+                'blue': (i % 16) + 1,
+                'composite_score': 0.90 - i * 0.04
+            }
+            for i in range(10)
+        ]
+
+        res = select_meihua_tickets(
+            extreme_pool,
+            purchase_dt=datetime(2026, 11, 23, 10, 0),
+            numbers=[3, 8],
+            mode='balanced',
+            target_count=5,
+        )
+
+        assert len(res['selected_tickets']) == 5
+        assert res['constraints_relaxed'] is True
+        assert res['relaxation_reason'] != ""
+        val = res['validation']
+        # Baseline hard constraints MUST hold
+        assert val['is_baseline_valid'] is True
+        assert val['tickets_count'] == 5
+        for t in res['selected_tickets']:
+            assert len(t['reds']) == 6
+            assert all(1 <= r <= 33 for r in t['reds'])
+            assert 1 <= t['blue'] <= 16
+
+    def test_backtest_draws_priority_over_days(self):
+        """3. When both --draws and --days are passed, --draws takes priority."""
+        import main
+        from src.backtest import run_backtest
+
+        # Verify CLI parser logic
+        parser = main.build_parser()
+        args = parser.parse_args(['backtest', '--days', '30'])
+        assert args.days == 30
+        assert args.draws is None
+
+        args_both = parser.parse_args(['backtest', '--draws', '5', '--days', '30'])
+        assert args_both.draws == 5
+        assert args_both.days == 30
+
+        # End-to-end backtest run: draws=5 with days=60 -> should yield exactly 5 detail records
+        detail, summary = run_backtest(draws=5, days=60, n_combinations=2, random_seed=42)
+        assert len(detail) == 5
+
+    def test_meihua_selection_determinism(self):
+        """4. Running select_meihua_tickets multiple times with identical inputs
+        must produce 100% deterministic results: exact same tickets, order, and scores.
+        """
+        from datetime import datetime
+        from src.meihua import select_meihua_tickets
+
+        pool = [
+            {
+                'rank': i + 1,
+                'reds': sorted(list(set([(i * 3 + j) % 33 + 1 for j in range(6)]))),
+                'blue': (i % 16) + 1,
+                'composite_score': 0.90 - i * 0.03
+            }
+            for i in range(12)
+        ]
+        # Pad any sets that might have collided under modulo
+        for p in pool:
+            while len(p['reds']) < 6:
+                p['reds'].append((p['reds'][-1] % 33) + 1)
+                p['reds'] = sorted(list(set(p['reds'])))
+
+        dt = datetime(2026, 11, 23, 14, 30)
+        first_run = select_meihua_tickets(
+            pool, purchase_dt=dt, numbers=[7, 14], mode='balanced', gamma=0.30, target_count=5
+        )
+
+        for _ in range(5):
+            repeat_run = select_meihua_tickets(
+                pool, purchase_dt=dt, numbers=[7, 14], mode='balanced', gamma=0.30, target_count=5
+            )
+            assert len(repeat_run['selected_tickets']) == len(first_run['selected_tickets'])
+            for t1, t2 in zip(first_run['selected_tickets'], repeat_run['selected_tickets']):
+                assert t1['reds'] == t2['reds']
+                assert t1['blue'] == t2['blue']
+                assert t1['original_rank'] == t2['original_rank']
+                assert t1['final_meihua_score'] == t2['final_meihua_score']
+

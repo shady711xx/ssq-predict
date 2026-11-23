@@ -271,14 +271,15 @@ def run_backtest(
         test_draws = all_draws.tail(draws).copy()
         test_period_desc = f'最近 {len(test_draws)} 期'
     elif days is not None and days > 0:
-        end_date = datetime.now()
+        latest_date_str = str(all_draws.iloc[-1]['draw_date'])[:10]
+        end_date = datetime.strptime(latest_date_str, '%Y-%m-%d')
         start_date = end_date - timedelta(days=days)
         test_draws = storage.get_draws_in_date_range(
             start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')
         )
         if test_draws.empty:
             test_draws = all_draws.tail(int((days // 7) * 3 + 3)).copy()
-        test_period_desc = f'最近 {days} 天 ({len(test_draws)} 期)'
+        test_period_desc = f'过去 {days} 天 ({len(test_draws)} 期: {start_date.strftime("%Y-%m-%d")} ~ {latest_date_str})'
     else:
         test_draws = all_draws.tail(100).copy()
         test_period_desc = f'最近 {len(test_draws)} 期 (默认)'
@@ -431,6 +432,7 @@ def run_backtest(
             for pred in preds:
                 ev = evaluate_single_draw(
                     pred['reds'], pred['blue'], actual_reds, actual_blue,
+                    draw_date=test_date,
                     special_rule_active=special_rule_active
                 )
                 st['total_red_hits'] += ev['red_hit']
@@ -496,6 +498,7 @@ def run_backtest(
             for pred in gt_preds:
                 ev = evaluate_single_draw(
                     pred['reds'], pred['blue'], actual_reds, actual_blue,
+                    draw_date=test_date,
                     special_rule_active=special_rule_active
                 )
                 st_gt['total_red_hits'] += ev['red_hit']

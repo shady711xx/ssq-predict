@@ -382,7 +382,7 @@ def cmd_audit_pool(args):
                 t['blue'],
                 actual_reds,
                 actual_blue,
-                special_rule_active=getattr(config, 'SPECIAL_RULE_ACTIVE', False),
+                draw_date=draw_date,
             )
             if ev['is_winner']:
                 prize_records.append({
@@ -615,7 +615,7 @@ def cmd_schedule(args):
         print('\n🛑 定时任务已停止')
 
 
-def main():
+def build_parser():
     parser = argparse.ArgumentParser(
         description='双色球数据采集、统计建模、博弈论反大众、回测评估与梅花终审系统',
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -670,6 +670,11 @@ def main():
     # schedule
     subparsers.add_parser('schedule', help='启动每日定时调度任务')
 
+    return parser
+
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
     if not args.command:
         parser.print_help()

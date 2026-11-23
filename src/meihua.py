@@ -362,37 +362,43 @@ def score_ticket_meihua(reds: List[int], blue: int, wuxing_weights: Dict[str, fl
 def validate_selected_tickets(
     tickets: List[Dict[str, Any]],
     mode: str = 'balanced',
-    expected_count: int = 5,
+    expected_count: Optional[int] = 5,
     max_ball_freq: int = 2,
     max_pairwise_overlap: int = 1,
 ) -> Dict[str, Any]:
     """Strictly validate selected tickets against hard constraints.
     
     Checks:
-    1. Ticket count == expected_count
-    2. Combination uniqueness (no duplicate tickets)
-    3. Legal ball ranges: reds in [1, 33] distinct 6 balls, blue in [1, 16]
-    4. Ball frequency across tickets: each red ball freq <= max_ball_freq
-    5. Blue ball constraints:
-       - 'balanced': all blue balls must be distinct
-       - 'jackpot': all blue balls must be identical (locked single blue)
-    6. Pairwise red ball overlap: for all pairs (i, j), len(reds_i & reds_j) <= max_pairwise_overlap
+    - Baseline hard checks (must never be violated, even under relaxation):
+      1. Ticket count == expected_count (when expected_count is set)
+      2. Combination uniqueness: no duplicate tickets (sorted reds, blue)
+      3. Legal ball ranges: exactly 6 distinct reds in [1, 33], blue in [1, 16]
+    - Morphological / game-theory checks (may be relaxed with warning):
+      4. Ball frequency across tickets: each red ball freq <= max_ball_freq
+      5. Blue ball constraints:
+         - 'balanced': all blue balls must be distinct
+         - 'jackpot': all blue balls must be identical (locked single blue)
+      6. Pairwise red ball overlap: for all pairs (i, j), len(reds_i & reds_j) <= max_pairwise_overlap
     
     Returns:
         dict: {
             'is_valid': bool,
+            'is_baseline_valid': bool,
             'issues': List[str],
+            'baseline_issues': List[str],
+            'relaxed_issues': List[str],
             'max_actual_freq': int,
             'max_actual_overlap': int,
             'distinct_blues': int,
             'tickets_count': int,
         }
     """
-    issues: List[str] = []
+    baseline_issues: List[str] = []
+    relaxed_issues: List[str] = []
     
     # 1. Count
-    if len(tickets) != expected_count:
-        issues.append(f"注数不符: 期望 {expected_count} 注，实际 {len(tickets)} 注")
+    if expected_count is not None and len(tickets) != expected_count:
+        baseline_issues.append(f"注数不符: 期望 {expected_count} 注，实际 {len(tickets)} 注")
 
     # 2. Duplicate combinations
     seen_combos = set()
@@ -400,16 +406,16 @@ def validate_selected_tickets(
         red_tuple = tuple(sorted(t['reds']))
         combo_key = (red_tuple, int(t['blue']))
         if combo_key in seen_combos:
-            issues.append(f"存在重复投注号码: 第 {i+1} 注 ({combo_key})")
+            baseline_issues.append(f"存在重复投注号码: 第 {i+1} 注 ({combo_key})")
         seen_combos.add(combo_key)
 
     # 3. Legal ranges
     for i, t in enumerate(tickets):
         reds = t['reds']
         if len(reds) != 6 or len(set(reds)) != 6 or any(not (1 <= int(r) <= 33) for r in reds):
-            issues.append(f"第 {i+1} 注红球非法: {reds}")
+            baseline_issues.append(f"第 {i+1} 注红球非法: {reds}")
         if not (1 <= int(t['blue']) <= 16):
-            issues.append(f"第 {i+1} 注蓝球非法: {t['blue']}")
+            baseline_issues.append(f"第 {i+1} 注蓝球非法: {t['blue']}")
 
     # 4. Red ball frequency
     red_counts = Counter()
@@ -419,17 +425,17 @@ def validate_selected_tickets(
     max_actual_freq = max(red_counts.values()) if red_counts else 0
     if max_actual_freq > max_ball_freq:
         over_balls = [f"{b}({c}次)" for b, c in red_counts.items() if c > max_ball_freq]
-        issues.append(f"单红球频次超标 (上限 {max_ball_freq} 次): {', '.join(over_balls)}")
+        relaxed_issues.append(f"单红球频次超标 (上限 {max_ball_freq} 次): {', '.join(over_balls)}")
 
     # 5. Blue ball mode constraints
     blues = [int(t['blue']) for t in tickets]
     distinct_blues = len(set(blues))
     if mode == 'balanced':
         if distinct_blues != len(tickets):
-            issues.append(f"稳健保底模式下蓝球未完全去重: 出现 {distinct_blues} 个独立蓝球 (期望 {len(tickets)} 个)")
+            relaxed_issues.append(f"稳健保底模式下蓝球未完全去重: 出现 {distinct_blues} 个独立蓝球 (期望 {len(tickets)} 个)")
     elif mode == 'jackpot':
         if distinct_blues > 1:
-            issues.append(f"冲大奖模式下蓝球未锁定单蓝: 出现 {distinct_blues} 个不同蓝球")
+            relaxed_issues.append(f"冲大奖模式下蓝球未锁定单蓝: 出现 {distinct_blues} 个不同蓝球")
 
     # 6. Pairwise red overlap
     max_actual_overlap = 0
@@ -439,11 +445,15 @@ def validate_selected_tickets(
             if ov > max_actual_overlap:
                 max_actual_overlap = ov
     if max_actual_overlap > max_pairwise_overlap:
-        issues.append(f"两两红球重叠超标 (上限 {max_pairwise_overlap} 个): 实际最大重叠为 {max_actual_overlap} 个")
+        relaxed_issues.append(f"两两红球重叠超标 (上限 {max_pairwise_overlap} 个): 实际最大重叠为 {max_actual_overlap} 个")
 
+    issues = baseline_issues + relaxed_issues
     return {
         'is_valid': len(issues) == 0,
+        'is_baseline_valid': len(baseline_issues) == 0,
         'issues': issues,
+        'baseline_issues': baseline_issues,
+        'relaxed_issues': relaxed_issues,
         'max_actual_freq': max_actual_freq,
         'max_actual_overlap': max_actual_overlap,
         'distinct_blues': distinct_blues,
@@ -666,7 +676,7 @@ def select_meihua_tickets(
     # Final fallback if pool is extremely small or heavily constrained
     if len(selected) < target_count:
         constraints_relaxed = True
-        relaxation_reason = f"候选池可用注数不足，兜底填充至 {len(scored_pool)} 注"
+        relaxation_reason = f"候选池注数不足 ({len(scored_pool)}/{target_count})，兜底填充全部可用注"
         for t in scored_pool:
             if not any((t['reds'] == prev['reds'] and t['blue'] == prev['blue']) for prev in selected):
                 selected.append(t)
@@ -681,10 +691,16 @@ def select_meihua_tickets(
             if ov > actual_max_overlap:
                 actual_max_overlap = ov
 
+    if actual_max_overlap > 1:
+        constraints_relaxed = True
+        if not relaxation_reason:
+            relaxation_reason = f"两两重叠放宽至 <= {actual_max_overlap}"
+
+    # Hard baseline validation: enforce expected_count when pool has enough tickets
     validation = validate_selected_tickets(
         selected,
         mode=mode,
-        expected_count=target_count,
+        expected_count=target_count if len(scored_pool) >= target_count else len(scored_pool),
         max_ball_freq=max_ball_freq,
         max_pairwise_overlap=1,
     )

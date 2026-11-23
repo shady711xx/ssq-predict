@@ -380,7 +380,7 @@ def check_and_update_predictions() -> List[Dict[str, Any]]:
                     pred_blue,
                     actual_reds,
                     actual_blue,
-                    special_rule_active=getattr(config, 'SPECIAL_RULE_ACTIVE', False)
+                    draw_date=actual.get('draw_date')
                 )
                 red_hits = ev['red_hit']
                 blue_hit = ev['blue_hit']
