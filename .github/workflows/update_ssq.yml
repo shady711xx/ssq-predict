@@ -2,8 +2,8 @@ name: Auto Update SSQ & Export Candidate Pool
 
 on:
   schedule:
-    # 北京时间 (UTC+8) 每周一、三、五 08:05 执行 -> UTC 时间 00:05
-    - cron: '5 0 * * 1,3,5'
+    # 北京时间 (UTC+8) 每周二、四、日 21:25 (开奖 21:15 后 10 分钟) 执行 -> UTC 时间 13:25
+    - cron: '25 13 * * 0,2,4'
   workflow_dispatch: # 支持在 GitHub 网页界面手动点击立即触发
 
 permissions:
@@ -29,7 +29,7 @@ jobs:
 
       - name: 1. Update SSQ Draw History
         run: |
-          python main.py update
+          python main.py update --wait 15
 
       - name: 2. Check and Settle Past Predictions
         run: |

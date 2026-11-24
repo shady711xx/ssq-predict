@@ -76,3 +76,31 @@ class TestCrawlerFailureSafeguards:
         # Draw count must remain untouched
         after_count = storage.get_draw_count()
         assert after_count == initial_count
+
+
+class TestCrawlerStorageDateAndCli:
+    def test_get_latest_draw_date(self, tmp_path, monkeypatch):
+        import config
+        test_db = tmp_path / "test_date.db"
+        test_csv = tmp_path / "test_date.csv"
+        monkeypatch.setattr(config, 'DB_PATH', str(test_db))
+        monkeypatch.setattr(config, 'CSV_PATH', str(test_csv))
+        storage.init_db()
+
+        # Empty DB returns None
+        assert storage.get_latest_draw_date() is None
+
+        # Insert 2 draws
+        storage.insert_draws([
+            {'issue': '26001', 'draw_date': '2026-01-01', 'red_1': 1, 'red_2': 2, 'red_3': 3, 'red_4': 4, 'red_5': 5, 'red_6': 6, 'blue': 7},
+            {'issue': '26002', 'draw_date': '2026-01-03', 'red_1': 2, 'red_2': 3, 'red_3': 4, 'red_4': 5, 'red_5': 6, 'red_6': 7, 'blue': 8},
+        ])
+        assert storage.get_latest_draw_date() == '2026-01-03'
+
+    def test_cmd_update_cli_wait_arg(self):
+        import main
+        parser = main.build_parser()
+        args = parser.parse_args(['update', '--wait', '15'])
+        assert args.wait == 15
+        assert args.rebuild is False
+

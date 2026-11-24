@@ -146,6 +146,17 @@ def get_latest_issue() -> Optional[str]:
         conn.close()
 
 
+def get_latest_draw_date() -> Optional[str]:
+    """Get the latest draw date (YYYY-MM-DD) in the database."""
+    conn = get_connection()
+    try:
+        cursor = conn.execute('SELECT draw_date FROM draws ORDER BY issue DESC LIMIT 1')
+        row = cursor.fetchone()
+        return str(row[0])[:10] if row and row[0] else None
+    finally:
+        conn.close()
+
+
 def get_draw_count() -> int:
     """Get total number of draws in the database."""
     conn = get_connection()

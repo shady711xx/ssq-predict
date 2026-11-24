@@ -44,6 +44,7 @@ def cmd_update(args):
     config.ensure_dirs()
     storage.init_db()
     rebuild = getattr(args, 'rebuild', False)
+    wait_minutes = getattr(args, 'wait', 0)
     
     if rebuild:
         print('🔄 正在全量重建历史数据库 (2003年至今)...')
@@ -52,6 +53,29 @@ def cmd_update(args):
     
     try:
         new_count = crawler.update_data(rebuild=rebuild)
+
+        # 若指定了 --wait 且当前为开奖日开奖后时段但尚未抓取到当期数据，则轮询等待发布
+        if not rebuild and wait_minutes > 0 and new_count == 0:
+            from datetime import datetime, timezone, timedelta
+            import time
+            bj_now = datetime.now(timezone(timedelta(hours=8)))
+            # 双色球开奖日为周二 (1), 周四 (3), 周日 (6)
+            is_draw_day = bj_now.weekday() in (1, 3, 6)
+            today_str = bj_now.strftime('%Y-%m-%d')
+            latest_draw_date = storage.get_latest_draw_date()
+
+            # 若今日为开奖日，当前时间在 21:15 之后，且最新开奖日期不是今天
+            if is_draw_day and (bj_now.hour > 21 or (bj_now.hour == 21 and bj_now.minute >= 15)) and latest_draw_date != today_str:
+                max_attempts = max(1, int(wait_minutes * 2))  # 每 30 秒轮询一次
+                print(f'⏳ 今日 ({today_str}) 为开奖日，数据源尚未发布当期开奖，正在轮询等待 (最多 {wait_minutes} 分钟)...')
+                for attempt in range(max_attempts):
+                    time.sleep(30)
+                    new_count = crawler.update_data(rebuild=False)
+                    if new_count > 0:
+                        print(f'🎉 成功捕获最新开奖数据！新增 {new_count} 条')
+                        break
+                    print(f'   ...尚未更新，30 秒后重试 ({attempt + 1}/{max_attempts})')
+
         total = storage.get_draw_count()
         if new_count > 0:
             print(f'✅ 成功更新/导入 {new_count} 条数据 (当前库内总记录数: {total})')
@@ -625,6 +649,7 @@ def build_parser():
     # update
     p_update = subparsers.add_parser('update', help='抓取最新开奖并更新数据库与CSV')
     p_update.add_argument('--rebuild', action='store_true', help='全量重建历史库 (2003年至今)')
+    p_update.add_argument('--wait', type=int, default=0, help='开奖日轮询等待新期数发布的最大分钟数 (默认: 0)')
 
     # backtest
     p_backtest = subparsers.add_parser('backtest', help='执行 Walk-Forward 消融回测')
